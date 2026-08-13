@@ -12,3 +12,4 @@ __pycache__/
 
 # 修复审计日志
 .opencode/agent/repair-audit.log
+.gstack/
