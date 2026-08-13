@@ -6,3 +6,6 @@
 __pycache__/
 *.py[cod]
 .venv/
+
+# Playwright MCP 运行时产物
+.playwright-mcp/
