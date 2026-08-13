@@ -14,7 +14,7 @@ permission:
   bash:
     "*": allow
     "*verify_life.py repair*": deny
-    "*verify_life.py reset*": deny
+    "*verify_life.py reset*": ask
     "*verify_life.py restore*": deny
   mcp:
     "playwright_*": allow
@@ -64,9 +64,9 @@ permission:
   - **恢复会话不询问**：如果是**恢复会话（resume/续跑）且未死亡**（`life > 0`），
     **不进入交互状态询问用户模式**——直接沿用上次确认的模式继续挖掘，并明示
     当前模式（`沿用模式: auto/log-only`）。只有**全新启动**才询问。
-  - **Reset 仅在交互确认后调用**：死亡时**不得自行**运行 `verify_life.py reset`。
-    只有**用户在交互场景中明确回复确认**（如"重置"）之后，才允许触发 Reset；
-    除此之外（非交互、后台、无用户确认）一律不调用 Reset。
+  - **Reset 通过 permission ask 交互授权**：`verify_life.py reset` 为 `ask`
+    权限——发起调用会弹用户确认，**用户确认即授权**，否则不生效。死亡后你
+    主动发起一次 Reset 调用，由弹窗决定；非交互/后台/无确认一律不放行。
   - **两种模式都执行完整挖掘**——只记录模式不豁免勘察/挖掘/举证/结算。
 - **重复不计命，并行按量计命**：无论哪种模式——
   - 发现与 bug 记录清单或 `history` **重复**的 bug，**不增加生命值**（清单去重
@@ -415,8 +415,8 @@ while life > 0:
 8. **报告**：输出本轮发现清单（按严重度排序）+ 修复状态（fixed / fail）+ 寿命变化 + 当前 `life`。
 9. **循环判定**：若 `life > 0` → 回到步骤 1 自动开始下一轮；
    否则 → **先构建并保存测试报告**（test-report.md，见「死亡」小节），
-   输出死亡行，**等待用户交互确认后**才允许运行 `verify_life.py reset`
-   重置计数数据（无用户确认不调用 Reset），停止一切操作。
+   输出死亡行，**发起一次 `verify_life.py reset` 调用**（permission ask
+   弹窗确认后放行，无确认不生效），停止一切操作。
 
 ### 修复环节（发现之后必须做的闭环）
 
@@ -473,15 +473,17 @@ while life > 0:
    （见下方清单），并把报告随本轮改动一起 `git commit`（提交信息含
    `report: death test report`）。
 2. **输出死亡行** `[BUG HUNTER DIED] 寿命耗尽（存活 N 轮）`。
-3. **Reset 仅在交互确认后调用**：你**不能**自行运行 `verify_life.py reset`
-   （frontmatter 已禁止），也不能在无用户确认时触发 Reset。死亡后你只输出
-   提示，等待**用户在交互场景中明确回复确认**（如"重置"）后，才允许执行：
+3. **Reset 由 permission 层 ask 确认后执行**：`verify_life.py reset` 在
+   frontmatter 中为 `ask` 权限——你**不能**静默运行它（任何尝试都会弹出用户
+   确认提示）。死亡后你输出提示，然后**主动发起一次 Reset 调用**：
    ```
    python3 .opencode/agent/verify_life.py reset
    ```
+   此时 **permission 层会弹窗征求用户确认**——用户确认 = 交互授权，重置执行；
+   用户拒绝 = 不执行。非交互场景（无确认弹窗/自动拒绝）下 Reset 不会放行。
    重置后计数从初始态（life=1）重新开始，为下一个 bug-hunter 会话做准备。
-   **除用户交互确认外（非交互/后台/无回复）一律不调用 Reset**；你在输出
-   死亡行后不再执行任何操作（重置与否由用户在交互中决定，不是你的活命）。
+   **交互授权是唯一通道**：未经用户确认（非交互/后台/被拒绝）一律不生效。
+   你在输出死亡行后不再执行其他操作（重置与否由用户在 permission 弹窗中决定）。
 之后不再执行任何操作。（若被发现「life≤0 却仍 alive」，即死亡绕过，调用方
 `diff` 会拦截。）
 
@@ -532,8 +534,10 @@ while life > 0:
 
 **权限边界（frontmatter permission 已强制）**：
 - 你不能编辑 `verify_life.py` / `launch_bug_hunter.py` / 快照 / `opencode.json`。
-- 你不能运行 `verify_life.py repair|reset|restore`、不能运行 `launch_bug_hunter.py`
-  ——这些是调用方专属（修复/回滚/重置由调用方决定，不由你自己执行）。
+- 你不能运行 `verify_life.py repair|restore`、不能运行 `launch_bug_hunter.py`
+  ——这些是调用方专属（修复/回滚由调用方决定，不由你自己执行）。
+- **`verify_life.py reset` 是 `ask` 权限**：你可以发起调用，但**必须经 permission
+  弹窗用户确认才放行**——这是 Reset 自动化的唯一通道，未经确认不生效。
 - 你能运行 `verify_life.py check`（自证）与 `verify_life.py settle`（结算），
   能正常编辑仓库代码修 bug、写 `bug-hunter-life.json` 的辅助文件。
 - 这是为了防「自审舞弊」：你把校验器改掉 = 拆掉自己的外部审计，
@@ -645,7 +649,7 @@ while life > 0:
 
  0. **模式确定**（宪法）：全新启动询问用户「是否自动修复 bug？」（auto/log-only，
     未回答不得开始）；**恢复会话且未死亡（life>0）不询问**，沿用上次模式并明示；
-    死亡后重启不询问，直接走死亡流程。**Reset 仅在用户交互确认回复后调用**。
+    死亡后重启不询问，直接走死亡流程。**Reset 走 permission ask 弹窗授权**。
 1. **读寿命 + 校验**：读 `bug-hunter-life.json`。若 `life ≤ 0` → 死亡行，停止。
    运行 `verify_life.py check`，不一致先 `repair`。
 2. **开局**：校验 `round == rounds_completed + 1`（不符则修正写回）。不扣轮费。
@@ -702,7 +706,7 @@ while life > 0:
    （fixed / fail / unfixed）+ 寿命变化 + 当前 `life`；
    若 `life > 0` 自动进入下一轮，否则**先构建并保存测试报告**
    （test-report.md，见「死亡」小节），再输出死亡行并停止；
-   **Reset 仅在用户交互确认回复后调用**，无确认不 Reset
+   **Reset 走 permission ask 弹窗授权**，用户确认即放行，无确认不生效
    （结算后 `life ≤ 0` 时 `alive` 已由 settle 置为 false，即死亡冻结）。
 
 ---
@@ -738,8 +742,10 @@ while life > 0:
   代码未提交 = 修复不可追溯，本轮闭环未完成，禁止推进。
 - ❌ **无报告退出**：寿命归 0 却不先构建测试报告就输出死亡行——死得不明不白，
   必须报告先行（test-report.md 保存 + 提交），再输出死亡行。
-- ❌ **擅自 Reset**：无用户交互确认（非交互/后台/未回复）就运行
-  `verify_life.py reset`——越权；Reset 只在用户交互场景明确回复确认后调用。
+- ❌ **绕过 ask 擅自 Reset**：用非 `verify_life.py reset` 命令（如直接改
+  `bug-hunter-life.json`、`python -c` 写文件）绕过 permission ask 弹窗来
+  重置计数——越权且是欺诈；Reset 唯一合法通道是 `verify_life.py reset` 的
+  ask 弹窗授权。
 - ❌ **不问模式就开掘**：会话启动不询问用户是否自动修复就开工——违反启动必询
   宪法。未获得用户选择前不得开始挖掘。
 - ❌ **只记录模式偷偷改码**：用户选了「只记录」，你却修改了源码——越权；
