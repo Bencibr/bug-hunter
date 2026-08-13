@@ -20,6 +20,9 @@
 - **化整为零（分治 + 覆盖追踪）**：把项目拆成模块清单
   `module-coverage.md`，并行任务分头轰炸各模块，用清单追踪覆盖状态
   （未覆盖→挖掘中→已覆盖）；死亡报告须确认 `已覆盖 X/Y 模块`，不留死角。
+- **测试分层（效率）+ 深度递进（挖掘）**：冒烟（秒级快筛）→ 聚焦（受影响
+  模块）→ 全量（回归）分层跑，先快后深；静态读码→动态跑测→插桩→反汇编
+  逐层递进，根因链完整才算挖透；异常样本用 `minimize_repro.py` 自动最小化。
 - **启动必询修复模式**：全新会话启动先询问用户「是否自动修复 bug」——自动修复走
   TDD+Live 全链路；只记录把 bug 写进 `bug-log.md`（不改码）。**恢复会话且未死亡
   不询问**，沿用上次模式继续。两种模式都做完整挖掘，且都适用并行。
@@ -47,6 +50,7 @@
 | `.opencode/agent/mistake-book.md` | 错题集（反思归类复用） |
 | `.opencode/agent/bug-log.md` | bug 记录清单（只记录模式的产物 + 全模式去重依据） |
 | `.opencode/agent/module-coverage.md` | 模块覆盖清单（化整为零：拆分模块 + 覆盖追踪） |
+| `.opencode/agent/minimize_repro.py` | 失败输入最小化工具（ddmin，根因集中 + 举证加速） |
 | `.opencode/agent/bug-hunter-life.json` | 寿命状态（运行时生成，不入库） |
 | `.opencode/agent/repair-audit.log` | 修复审计日志（每次 repair 留痕，不入库） |
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
