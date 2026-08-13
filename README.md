@@ -1,6 +1,6 @@
 # Bug-Hunter Agent
 
-> **Version 0.0.3** · [Git tag: v0.0.3](https://github.com/Bencibr/bug-hunter)
+> **Version 0.0.4** · [Git tag: v0.0.4](https://github.com/Bencibr/bug-hunter)
 
 永无止境地挖掘错误的对抗性审计 Agent。白盒源码审计 + 黑盒成品测试
 （CLI / PTY / 数据接口 / **UI 视觉交互面**），多轮循环机制：每轮消耗
