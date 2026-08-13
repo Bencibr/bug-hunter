@@ -37,6 +37,8 @@
   `test-report.md` 汇总测试报告。
 - **UI 挖 bug**：通过 Playwright 打开网页，多断点截图 + DOM 几何断言 +
   交互轰炸 + 状态覆盖，找布局崩塌、焦点陷阱、文案截断、对比度不足等视觉 bug。
+- **测试广度保障**：47 例单元测试覆盖校验器/启动协议/环境自检/最小化工具，
+  外加一致性测试防文档漂移（版本/引用/权限/覆盖）——改动不怕破坏。
 
 ### 文件结构
 
@@ -56,6 +58,9 @@
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
 | `test-report.md` | 死亡退出前的汇总测试报告（运行时生成） |
 | `tests/test_verify_life.py` | 校验器单元测试（23 例：check/settle/diff/repair/evidence/selfhash） |
+| `tests/test_launch_bug_hunter.py` | 启动协议测试（5 例：pre/post/status） |
+| `tests/test_setup_ui_env.py` | 环境自检测试（10 例：node/npx/浏览器检测） |
+| `tests/test_consistency.py` | 一致性测试（6 例：版本/引用/权限/覆盖防漂移） |
 | `tests/run_tests.sh` | 一键测试入口 |
 | `opencode.json` | Playwright MCP 配置（UI 挖 bug 用） |
 
@@ -79,12 +84,20 @@
 ```bash
 ./tests/run_tests.sh
 # 或
-python3 tests/test_verify_life.py
+python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-覆盖：check 一致性 / settle 结算护栏（credited、证据校验、轮号、历史去重）/
-snapshot/diff/restore / repair 幽灵轮费回滚 / 篡改自校验。测试在独立临时目录
-运行，**不污染真实 `bug-hunter-life.json`**。
+**测试覆盖（47 例）**：
+- `test_verify_life.py`（23）— check / settle 结算护栏（credited、证据校验、
+  轮号、历史去重）/ snapshot/diff/restore / repair 幽灵轮费回滚 / 篡改自校验
+- `test_launch_bug_hunter.py`（5）— pre 基线+外部基线输出 / post diff 异常回滚
+  / status
+- `test_setup_ui_env.py`（10）— node/npx/浏览器检测、check 汇总、缺失上报
+- `test_minimize_repro.py`（3）— ddmin 最小化（去噪保触发、多 token 保留）
+- `test_consistency.py`（6）— **防文档漂移**：版本一致、提示词引用文件存在、
+  reset 权限为 ask、核心脚本都有测试、README 文件表一致
+
+测试在独立临时目录运行，**不污染真实 `bug-hunter-life.json`**。
 
 > 提示词结构：`bug-hunter.md` 保留全部行为规则（宪法/哲学/机制/反模式）；
 > 错题集、bug-log、模块覆盖清单的格式模板在各自独立文件，`bug-hunter.md`
