@@ -1,6 +1,6 @@
 # Bug-Hunter Agent
 
-> **Version 0.0.4** · [Git tag: v0.0.4](https://github.com/Bencibr/bug-hunter)
+> **Version 0.0.5** · [Git tag: v0.0.5](https://github.com/Bencibr/bug-hunter)
 
 永无止境地挖掘错误的对抗性审计 Agent。白盒源码审计 + 黑盒成品测试
 （CLI / PTY / 数据接口 / **UI 视觉交互面**），多轮循环机制：每轮消耗
@@ -106,11 +106,13 @@ python3 .opencode/agent/launch_bug_hunter.py post
 > OpenCode 原生支持本仓库 frontmatter 的 `mode: all`、`permission`（编辑/命令/
 > MCP 授权）字段，无需改动。
 
-**安全机制**（v0.0.2 审计修复）：
+**安全机制**（v0.0.2 审计修复，v0.0.5 增补）：
 - 校验器内嵌自哈希校验，被 bash 篡改后拒绝执行
 - settle 要求每条计命 findings 含真实文件引用或测试名（堵凭空编造刷命）
 - `post` 用外部基线 diff，agent 同时改 life+snapshot 也会被检出
 - repair 每次操作写入 `repair-audit.log` 审计日志，可追溯
+- `verify_life.py reset` 为 `ask` 权限——重置必须经 permission 弹窗用户确认
+  （交互授权），agent 无法绕过 ask 静默重置
 
 ---
 
