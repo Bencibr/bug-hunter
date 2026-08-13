@@ -29,18 +29,20 @@
 
 | 文件 | 作用 |
 |------|------|
-| `.opencode/agent/bug-hunter.md` | Agent 定义（核心提示词 + 生命周期规则） |
-| `.opencode/agent/verify_life.py` | 寿命校验器（check/settle/snapshot/diff/restore） |
-| `.opencode/agent/launch_bug_hunter.py` | 启动协议（pre/post/status） |
+| `.opencode/agent/bug-hunter.md` | Agent 定义（核心提示词 + 生命周期规则 + 宪法） |
+| `.opencode/agent/verify_life.py` | 寿命校验器（check/repair/settle/reset/snapshot/diff/restore/selfhash，含自哈希防篡改） |
+| `.opencode/agent/launch_bug_hunter.py` | 启动协议（pre 输出外部基线 / post 核对 / status） |
 | `.opencode/agent/lockdown.sh` | OS 层加固（把校验器/基线设为只读） |
 | `.opencode/agent/setup_ui_env.py` | UI 环境自检/自动补装（node/playwright/浏览器） |
 | `.opencode/agent/mistake-book.md` | 错题集（反思归类复用） |
 | `.opencode/agent/bug-hunter-life.json` | 寿命状态（运行时生成，不入库） |
+| `.opencode/agent/repair-audit.log` | 修复审计日志（每次 repair 留痕，不入库） |
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
+| `test-report.md` | 死亡退出前的汇总测试报告（运行时生成） |
 | `opencode.json` | Playwright MCP 配置（UI 挖 bug 用） |
 
-> 提示：`bug-hunter-life.json` 和 `.snapshot` 已被 `.gitignore` 排除。
-> 每个使用者 clone 后从初始态（life=1）各自开始，历史发现不共享。
+> 提示：`bug-hunter-life.json`、`.snapshot`、`repair-audit.log` 已被 `.gitignore`
+> 排除。每个使用者 clone 后从初始态（life=1）各自开始，历史发现不共享。
 
 ---
 
@@ -88,10 +90,11 @@ python3 .opencode/agent/launch_bug_hunter.py post
 > OpenCode 原生支持本仓库 frontmatter 的 `mode: all`、`permission`（编辑/命令/
 > MCP 授权）字段，无需改动。
 
-**安全机制**（v0.0.1 审计修复）：
+**安全机制**（v0.0.2 审计修复）：
 - 校验器内嵌自哈希校验，被 bash 篡改后拒绝执行
 - settle 要求每条计命 findings 含真实文件引用或测试名（堵凭空编造刷命）
 - `post` 用外部基线 diff，agent 同时改 life+snapshot 也会被检出
+- repair 每次操作写入 `repair-audit.log` 审计日志，可追溯
 
 ---
 
@@ -251,6 +254,15 @@ agent 会按标准流程执行：
 > 分两层：底层**运行时依赖**（node、@playwright/mcp、Chromium）可自动检测并
 > 补装（`setup_ui_env.py install`）；但 **MCP 工具本身**由 opencode 启动时加载，
 > agent 无法在会话中给自己热注册新 MCP server——补装完依赖后需重启会话生效。
+
+**Q: 每轮修复会自动提交代码吗？**
+> 会。宪法要求每轮结算后 `git commit -m "fix(roundN): <摘要>"` 提交本轮全部改动
+> （源码 + 测试 + findings + 错题集）。未提交 = 本轮闭环未完成，禁止进入下一轮。
+
+**Q: agent 死亡时会留下什么？**
+> 宪法要求死亡退出前先构建 `test-report.md`（存活轮数、发现清单、修复状态、
+> Live 复验结果、遗留风险），再写 `alive=false` 输出死亡行。报告随代码一起提交，
+> 没有报告不退出。
 
 ---
 
