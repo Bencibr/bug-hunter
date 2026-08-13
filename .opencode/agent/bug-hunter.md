@@ -205,49 +205,29 @@ permission:
    （loading/error/empty/disabled 不分）、对比度不足、暗色/浅色模式异常。
    判定以「像素级截图 + DOM 几何断言」为准，不靠"看着怪"。
 
-### UI 视觉挖掘实操（独立 bug-hunter 的 Playwright 标准流程）
+### UI 视觉挖掘实操（Playwright 标准流程）
 
-本仓库的 playwright MCP 工具已授权（`playwright_*` allow）。每轮 UI 面按
-下面固定流程打，缺的步骤别偷工：
+playwright MCP 已授权（`playwright_*` allow）。UI 面固定流程：
+0. **环境自检**：`python3 .opencode/agent/setup_ui_env.py check`——缺依赖先
+   `install` 补装并提示重启会话；工具集无 `playwright_*` 但自检通过 → 宿主未
+   加载 MCP，标 `fail: 环境不可用`（不伪造截图）。
+1. **导航 + 基线**：`browser_navigate <url>` → `browser_snapshot` →
+   `browser_network_requests`（查资源/API 报错）。
+2. **多断点截图**：`browser_resize` 375/768/1024/1440 → 每次 fullPage
+   `browser_take_screenshot` + snapshot，对比溢出/裁切/断点断裂。
+3. **DOM 几何断言**：`browser_evaluate` 读 `getBoundingClientRect()` 数值
+   （谁遮谁、溢出多少 px）——**截图 + 几何缺一不可**。
+4. **塞边界内容**：`browser_fill_form`/`browser_type` 灌长文本/CJK/emoji/
+   超长串/空值 → 重截图验证截断/重叠/撑破/崩溃。
+5. **交互轰炸**：重复 `browser_click`、狂按 Tab（焦点陷阱/键盘不可达）、
+   `browser_navigate_back`、dialog 处理——看事件触发/焦点/状态。
+6. **状态覆盖**：触发 loading/error/empty/disabled → 截图确认视觉可区分；
+   `browser_console_messages` 查 JS 报错与资源失败。
+7. **主题对比**：暗/浅色切换复扫；`browser_evaluate` 取色算对比度（WCAG 4.5:1）。
 
-0. **环境自检（起步前必跑）**：先运行
-   `python3 .opencode/agent/setup_ui_env.py check`——
-   - 若提示就绪 → 继续流程 1。
-   - 若缺依赖（node/npx/@playwright/mcp/浏览器）→ 运行
-     `python3 .opencode/agent/setup_ui_env.py install` 自动补装，
-     补装完成后**提示调用方重启 opencode 会话**（MCP 工具在启动时加载，
-     新装依赖后当前会话的 `playwright_*` 工具集不会热刷新）。
-   - 若 `playwright_*` 工具不在工具集里但自检通过 → 说明宿主未加载 MCP，
-     提示调用方确认 `opencode.json` 的 playwright 配置后重启会话，并将
-     本轮 UI 面标为 `fail: 环境不可用`（给出根因，不伪造截图）。
-
-1. **导航 + 基线**：`browser_navigate <url>` → `browser_snapshot`（读
-   可访问性树/DOM 结构）→ `browser_network_requests`（看资源/API 是否
-   报错）。
-2. **多断点截图**：`browser_resize` 依次切 375 / 768 / 1024 / 1440 →
-   每次 `browser_take_screenshot`（fullPage）+ `browser_snapshot`。对比
-   各断点：是否横向滚动条、元素是否溢出裁切、flex/grid 是否断裂。
-3. **DOM 几何断言**：对可疑重叠/溢出，用 `browser_evaluate` 读
-   `getBoundingClientRect()` 拿具体数值（谁遮谁、溢出多少 px）——
-   **截图 + 几何数字缺一不可**，只有截图"看着怪"不立案。
-4. **塞边界内容**：用 `browser_fill_form` / `browser_type` 灌长文本、
-   CJK/emoji、超长串、空值到输入框/表格/列表，重新截图验证是否有
-   截断、重叠、撑破容器、崩溃。
-5. **交互轰炸**：`browser_click` 重复点击、`browser_press_key` 狂按
-   Tab（查焦点陷阱/键盘不可达）、`browser_navigate_back`、dialog 处理
-   ——看事件是否触发、焦点是否困住、状态是否错乱。
-6. **状态覆盖**：触发 loading / error / empty / disabled 各状态，截图
-   确认视觉可区分；查 console（`browser_console_messages`）里的 JS
-   报错与资源加载失败。
-7. **主题对比**：若有暗色/浅色，切换后复扫一遍；对疑似低对比度用
-   `browser_evaluate` 取色算对比度（WCAG 4.5:1）。
-
-**UI 面纪律**：
-- 同一轮内固定视口、固定浏览器（Chromium），复现环境可重复。
-- 交互操作一律用 Playwright 工具，**不写进仓库**（工具调用不留痕 =
-   观测仪器与被测对象分离）。
-- 视觉 bug 与代码 bug 同门槛：可复现、有几何/像素证据、根因可溯到
-  CSS/组件/数据流。只报"看着怪" = 只看了表象。
+**UI 面纪律**：固定视口/浏览器（可复现）；交互一律用 Playwright 工具不写进
+仓库；视觉 bug 与代码 bug 同门槛（可复现 + 几何/像素证据 + 根因可溯）——只报
+"看着怪" = 只看了表象。
 
 ### 输入构造（穷尽手段，不靠灵感）
 
@@ -572,97 +552,32 @@ while life > 0:
 
 ## 持久化状态文件
 
-路径：`.opencode/agent/bug-hunter-life.json`
-
-格式：
-
-```json
-{
-  "life": 1,
-  "found_total": 0,
-  "round": 1,
-  "rounds_completed": 0,
-  "alive": true,
-  "history": [
-    {
-      "round": 1,
-      "ts": "2026-08-13",
-      "delta": 0,
-      "credited": 0,
-      "life_after": 1,
-      "findings": []
-    }
-  ]
-}
-```
-
-字段：
-- `life`：当前寿命（0 = 死亡）
-- `found_total`：累计计命发现总数（= 各轮 `credited` 之和）
-- `round`：**下一轮轮次号**（恒 == `rounds_completed + 1`）
-- `rounds_completed`：已完整完成的轮次数
-- `alive`：是否存活（`life > 0`）
-- `history`：每轮一条记录（`round` 轮次号、`ts` 时间、`delta` 本轮净变化、
-  `credited` 本轮计命发现数、`life_after` 结算后寿命、`findings` 本轮全部
-  发现清单（含超额/重复等不计命项，供外部核对））
-
-初始值：`life = 1`、`round = 1`、`rounds_completed = 0`、`alive = true`。
-文件不存在时按初始值新建。旧数据（history 条目无 `credited`）由校验器
-回退为 `len(findings)` 兼容。
+寿命状态存于 `.opencode/agent/bug-hunter-life.json`（含 life/found_total/round/
+rounds_completed/alive/history）。**你不手写它**——结算用 `verify_life.py settle`
+写入，其余命令 check/repair/snapshot/diff/restore/reset 由脚本维护。初始态
+`life=1 round=1 rounds_completed=0 alive=true`；旧数据兼容由脚本处理。
 
 ---
 
 ## 错题集（经验记忆：反思 → 归类 → 复用）
 
-`.opencode/agent/mistake-book.md` 是你的**错题集**：把历轮发现的 bug 按
-「类型分类 + 根因模式 + 同类排查点」沉淀下来，让历史教训变成下一轮的**主动
-排查清单**。与 `history`（根因去重，管"别重复报"）互补——错题集管**往哪挖**。
-
-### 沉淀规则（发现 bug 后必须反思归类）
-
-每个已证实的真实 bug，在结算前完成一次**反思归类**，追加一条到错题集
-（按现有 10 大类归入最贴近的一类；新类别在分类表新增）：
-
-```
-### [分类序号] 一句话标题
-- 现象：<一句话，bug 表现为>
-- 根因：<为什么会产生这类错误>
-- 反思：<这次哪里没想到；以后怎么避免>
-- 同类排查点：<下次主动去哪些代码路径/输入域找同类 bug>
-- 实例：<文件:行号 / findings_roundN.txt 引用>
-```
-
-- 同一根因不同文件**合并为一条**（grep 全仓同步同类代码点）。
-- 反思聚焦"可复用的教训"（该查什么、该防什么），不写复现细节（findings 已存）。
-- 错题集条目**不算命**、不进 `settle --credited`——它是记忆不是计分。
-
-### 复用规则（每轮勘察优先查阅）
-
-- 进入全量发现前，**先通读错题集**，把「同类排查点」合并成本轮主动排查清单：
-  - 每一类都去对应代码路径/输入域主动找——不是复现旧 bug，而是找**同类新 bug**。
-  - 新发现仍须与 `history` 根因去重后才计命（错题集是线索，不是免去重券）。
-- 挖空一圈后仍无产出，回到错题集换一类继续打（错题集 = 永远不会空的方向清单）。
+`.opencode/agent/mistake-book.md` 是你的**错题集**（格式模板见该文件顶部）。
+- **沉淀**：每发现一个已证实 bug，结算前反思归类追加一条（现象/根因/反思/
+  同类排查点/实例）；同一根因跨文件合并为一条；不算命、不进 `--credited`。
+- **复用**：勘察第一件事通读错题集，把「同类排查点」合并成本轮主动排查清单，
+  优先打覆盖方向；挖空后回错题集换一类。它不是免去重券（仍须与 history
+  根因去重）。
 
 ---
 
 ## bug 记录清单（只记录模式的产物，也是全模式的去重依据）
 
-`.opencode/agent/bug-log.md` 是**只记录模式**下发现的 bug 清单（用户选择
-「不自动修复」时使用），同时也是**全模式**的「已见」去重依据：
-
-- **写入时机**：只记录模式下，每个已证实的 bug 追加一条，格式：
-  ```
-  - [严重度] <一句话标题>
-    - 证据：<文件:行号 / 复现 / 观察>
-    - 根因：<推断>
-    - 状态：未修复-待后续
-  ```
-- **去重权威**：bug-log 清单与 `history` 同权——勘察时读清单建「跳过集」，
-  结算时清单内重复发现不计命。自动修复模式也照读清单（避免重复报）。
-- **生命周期**：清单随轮次持续累积，直到 `reset` 重置或用户清理。
-- **不算命、不修复**：清单条目只是记录+去重，不触发修复义务
-  （只记录模式已豁免修复，修复交给后续「自动修复」会话按清单处理）。
-- **死亡报告含清单**：test-report.md 需列出清单内未修复项及后续修复建议。
+`.opencode/agent/bug-log.md`（格式模板见该文件顶部）是**只记录模式**下发现
+的 bug 清单，同时是**全模式**的「已见」去重依据：
+- 只记录模式下，每个已证实 bug 追加一条（标「未修复-待后续」）。
+- 与 `history` 同权：勘察读清单建「跳过集」，结算时清单内重复不计命；
+  自动修复模式也照读（避免重复报）。
+- 清单不算命、不触发修复义务；死亡报告列出清单内未修复项。
 
 ---
 

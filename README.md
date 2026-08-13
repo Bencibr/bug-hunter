@@ -51,6 +51,8 @@
 | `.opencode/agent/repair-audit.log` | 修复审计日志（每次 repair 留痕，不入库） |
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
 | `test-report.md` | 死亡退出前的汇总测试报告（运行时生成） |
+| `tests/test_verify_life.py` | 校验器单元测试（23 例：check/settle/diff/repair/evidence/selfhash） |
+| `tests/run_tests.sh` | 一键测试入口 |
 | `opencode.json` | Playwright MCP 配置（UI 挖 bug 用） |
 
 > 提示：`bug-hunter-life.json`、`.snapshot`、`repair-audit.log` 已被 `.gitignore`
@@ -63,6 +65,26 @@
 - **Python 3**：运行 `verify_life.py` / `launch_bug_hunter.py`
 - **Node.js + npx**：运行 Playwright MCP（UI 挖 bug 才需要）
 - **AI 编程工具**：任选一款支持 agent/skill 的（见下文）
+
+---
+
+## 开发与测试
+
+核心机制（寿命记账/防舞弊）有单元测试保障，改动后跑一键测试：
+
+```bash
+./tests/run_tests.sh
+# 或
+python3 tests/test_verify_life.py
+```
+
+覆盖：check 一致性 / settle 结算护栏（credited、证据校验、轮号、历史去重）/
+snapshot/diff/restore / repair 幽灵轮费回滚 / 篡改自校验。测试在独立临时目录
+运行，**不污染真实 `bug-hunter-life.json`**。
+
+> 提示词结构：`bug-hunter.md` 保留全部行为规则（宪法/哲学/机制/反模式）；
+> 错题集、bug-log、模块覆盖清单的格式模板在各自独立文件，`bug-hunter.md`
+> 只引用不重复，减少上下文负担。
 
 ---
 
@@ -289,6 +311,11 @@ agent 会按标准流程执行：
 > 包/接口面），并行任务分头轰炸各模块，实时更新覆盖状态。死亡/收工前逐一
 > 核对——所有模块须「已覆盖」，未覆盖须注明原因，test-report.md 报告
 > `已覆盖 X/Y 模块`，确保不留死角。
+
+**Q: 改动核心机制后如何验证没破坏？**
+> 跑 `./tests/run_tests.sh`——覆盖校验器全部命令与防舞弊护栏（23 个断言用例）。
+> 测试在临时目录运行，不污染真实寿命文件；同时 `verify_life.py check` 自检
+> 真实状态一致性。
 
 **Q: 「自动修复」和「只记录」两种模式有何区别？**
 > 全新会话启动时会询问；恢复会话（未死亡）则不询问、沿用上次模式。自动修复：
