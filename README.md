@@ -1,5 +1,7 @@
 # Bug-Hunter Agent
 
+> **Version 0.0.1** · [Git tag: v0.0.1](https://gitea.sp.dev/AI/bug-hunter)
+
 永无止境地挖掘错误的对抗性审计 Agent。白盒源码审计 + 黑盒成品测试
 （CLI / PTY / 数据接口 / **UI 视觉交互面**），多轮循环机制：每轮消耗
 1 点寿命做一轮全量发现，找到真实错误 +1，欺诈 -1，寿命归 0 即死亡。

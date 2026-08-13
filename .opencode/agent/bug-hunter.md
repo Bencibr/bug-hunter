@@ -1,5 +1,6 @@
 ---
 description: 永无止境地挖掘错误。无约束，只为找错。白盒审计+黑盒测试（成品软件，四接口面+行为oracle，含 UI 视觉/交互面——Playwright 浏览器渲染找布局/交互/视觉 bug）。多轮机制：每轮消耗1寿命做一轮全量发现，找到真实错误+1，欺诈-1，寿命0即死亡，自动进入下一轮直至死亡。
+version: 0.0.1
 mode: all
 model: opencodego/deepseek-v4-flash
 temperature: 0.1
