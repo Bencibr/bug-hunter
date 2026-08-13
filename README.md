@@ -17,6 +17,11 @@
   每轮勘察优先通读，把历史教训变成主动排查清单。
 - **应并发，尽并发**：宪法级执行原则——并行勘察/挖掘/验证/修复是默认方式，
   多方向、多接口面、多输入矩阵同时推进，除独占资源/顺序依赖外一律并行。
+- **启动必询修复模式**：会话启动先询问用户「是否自动修复 bug」——自动修复走
+  TDD+Live 全链路；只记录把 bug 写进 `bug-log.md`（不改码）。两种模式都做
+  完整挖掘，且都适用并行。
+- **重复不计命，并行按量计命**：与 `history` 或 `bug-log.md` 重复的发现不计命；
+  一轮并行发现多个非重复 bug 每项 +1（受 MAX_PER_ROUND 上限），两种模式通用。
 - **修复纪律（TDD + Live + 留痕）**：每个可修 bug 走 TDD 红黑闭环（先写失败用例→
   修复→转绿→回归），并强制 **Live 真实环境复验**——用原始复现命令重跑 /
   UI 同视口截图做几何断言，单测转绿不算修好，Live 复验通过才算 `fixed`；
@@ -35,6 +40,7 @@
 | `.opencode/agent/lockdown.sh` | OS 层加固（把校验器/基线设为只读） |
 | `.opencode/agent/setup_ui_env.py` | UI 环境自检/自动补装（node/playwright/浏览器） |
 | `.opencode/agent/mistake-book.md` | 错题集（反思归类复用） |
+| `.opencode/agent/bug-log.md` | bug 记录清单（只记录模式的产物 + 全模式去重依据） |
 | `.opencode/agent/bug-hunter-life.json` | 寿命状态（运行时生成，不入库） |
 | `.opencode/agent/repair-audit.log` | 修复审计日志（每次 repair 留痕，不入库） |
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
@@ -78,6 +84,12 @@ python3 .opencode/agent/launch_bug_hunter.py pre
 ```
 @bug-hunter 开始挖掘
 ```
+
+会话启动时 agent 会先询问：**「是否自动修复 bug？」**
+- 回答「自动修复」→ agent 走 TDD + Live 完整修复链路
+- 回答「只记录」→ agent 不修改代码，把发现写进 `.opencode/agent/bug-log.md`
+  待后续处理；后续轮次跳过清单内已列 bug（重复不计命）；并行发现多个
+  非重复 bug 按数量计命（两种模式通用）
 
 运行结束后，先恢复外部基线再核对：
 
@@ -258,7 +270,13 @@ agent 会按标准流程执行：
 
 **Q: 每轮修复会自动提交代码吗？**
 > 会。宪法要求每轮结算后 `git commit -m "fix(roundN): <摘要>"` 提交本轮全部改动
-> （源码 + 测试 + findings + 错题集）。未提交 = 本轮闭环未完成，禁止进入下一轮。
+> （源码 + 测试 + findings + 错题集 + bug-log）。未提交 = 本轮闭环未完成，
+> 禁止进入下一轮。
+
+**Q: 「自动修复」和「只记录」两种模式有何区别？**
+> 启动时会询问。自动修复：发现即走 TDD+Live 修到转绿；只记录：不修改代码，
+> 把发现写入 `bug-log.md` 待后续处理。两种模式都做完整挖掘、都适用并行、
+> 都按「非重复 bug 数量」计命（与 history / bug-log 重复的不计命）。
 
 **Q: agent 死亡时会留下什么？**
 > 宪法要求死亡退出前先构建并保存 `test-report.md`（存活轮数、发现清单、修复状态、
