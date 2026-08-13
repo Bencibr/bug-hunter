@@ -1,0 +1,8 @@
+# 运行时状态（每人各自从初始态开始）
+.opencode/agent/bug-hunter-life.json
+.opencode/agent/bug-hunter-life.json.snapshot
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
