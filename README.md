@@ -61,26 +61,35 @@ git clone https://github.com/Bencibr/bug-hunter.git
 cd bug-hunter
 ```
 
-**启动协议**（校验基线 → 快照 → 启动 → 结束后核对）：
+**启动协议**（校验基线 → 快照 → 输出外部基线 → 启动 → 结束后核对）：
 
 ```bash
 python3 .opencode/agent/launch_bug_hunter.py pre
 ```
 
-然后在 opencode 中通过 **Task 工具**调用 subagent，或输入框 `@` 提及：
+`pre` 会输出一行 **外部基线**（`export BH_PRE_BASELINE='...'`），请**复制保存**
+（它放在 agent 会话之外，防 agent 篡改快照后绕过 diff）。然后在 opencode 中
+通过 **Task 工具**调用 subagent，或输入框 `@` 提及：
 
 ```
 @bug-hunter 开始挖掘
 ```
 
-运行结束后核对：
+运行结束后，先恢复外部基线再核对：
 
 ```bash
+# 粘贴 pre 输出的 export 行（若换了终端必须重新设置）
+export BH_PRE_BASELINE='{"life": 1, ...}'
 python3 .opencode/agent/launch_bug_hunter.py post
 ```
 
 > OpenCode 原生支持本仓库 frontmatter 的 `mode: all`、`permission`（编辑/命令/
 > MCP 授权）字段，无需改动。
+
+**安全机制**（v0.0.1 审计修复）：
+- 校验器内嵌自哈希校验，被 bash 篡改后拒绝执行
+- settle 要求每条计命 findings 含真实文件引用或测试名（堵凭空编造刷命）
+- `post` 用外部基线 diff，agent 同时改 life+snapshot 也会被检出
 
 ---
 

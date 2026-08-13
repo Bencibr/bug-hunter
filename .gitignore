@@ -9,3 +9,6 @@ __pycache__/
 
 # Playwright MCP 运行时产物
 .playwright-mcp/
+
+# 修复审计日志
+.opencode/agent/repair-audit.log

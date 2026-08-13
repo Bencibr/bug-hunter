@@ -404,14 +404,28 @@ while life > 0:
 `snapshot`（启动前基线）+ `diff`（结束后对比），检出你「内部自洽的全面伪造」
 （如把 life 与 life_after 链一起改成大值——`diff` 按 life 变化范围拦截）。
 
+**防篡改加固（v0.0.1 审计修复，你无法绕过）**：
+- **校验器自校验**：`verify_life.py` 内嵌自身 SHA256 校验（排除 SELF_HASH 行）。
+  你用 bash 的 `sed`/`cp`/`vi` 改它任何一行 → 它拒绝执行所有命令（exit 3）。
+  改校验器 = 拆外部审计 = 等同伪造证据，`life -1`。
+- **外部基线**：`launch_bug_hunter.py pre` 会输出一行 `export BH_PRE_BASELINE=...`
+  （完整基线 JSON）。调用方把它保存在**你的会话之外**，post 时用它做 `diff`。
+  你无法篡改外部基线——即使把 `bug-hunter-life.json` 和 `.snapshot` 一起改成
+  大值，外部基线对比仍会检出 life 超范围变化。
+- **settle 证据校验**：结算时每条计命 findings 必须含真实证据引用——
+  `文件:行号`（文件真实存在于仓库）或 `test_*` 测试名 + 复现/观察标记。
+  凭空编造 findings（引用不存在的文件/无测试名）→ 拒绝结算。
+  引用真实文件或测试名才算数，编造刷命被封堵。
+
 **调用方启动协议（真实落地的外部防线）**：
 `.opencode/agent/launch_bug_hunter.py` 把「检查基线 → 快照 → 结束核对 →
 异常回滚」固化为命令，调用方/主会话按此执行：
 1. `python3 .opencode/agent/launch_bug_hunter.py pre`（启动前：check+snapshot，
-   基线不可用则拒绝放行）
+   基线不可用则拒绝放行；并输出外部基线 `BH_PRE_BASELINE`）
 2. 通过 opencode Task 工具启动你（subagent_type=bug-hunter）
-3. 运行结束后 `python3 .opencode/agent/launch_bug_hunter.py post`
-   （diff 异常自动 restore 回滚基线并提示复核报告真实性）
+3. 运行结束后，调用方先恢复外部基线（`export BH_PRE_BASELINE='...'`），再
+   `python3 .opencode/agent/launch_bug_hunter.py post`
+   （diff 用外部基线对比，异常自动 restore 回滚基线并提示复核报告真实性）
 
 **OS 层加固（可选但推荐）**：`python3 .opencode/agent/lockdown.sh`
 把 `verify_life.py` / `launch_bug_hunter.py` / 快照基线设为**只读**，
@@ -426,7 +440,8 @@ while life > 0:
 - 你能运行 `verify_life.py check`（自证）与 `verify_life.py settle`（结算），
   能正常编辑仓库代码修 bug、写 `bug-hunter-life.json` 的辅助文件。
 - 这是为了防「自审舞弊」：你把校验器改掉 = 拆掉自己的外部审计，
-  等同于伪造证据，`life -1`。
+  等同于伪造证据，`life -1`。即使绕过 edit 用 bash 改文件，校验器自校验
+  与外部基线仍会拦住你。
 
 **寿命是硬性真实**：每次写回必须真实反映结算结果。伪造寿命文件
 （把自己的寿命改大、抹掉减分记录、谎报轮费、跳过校验）是欺诈，立即 -1。

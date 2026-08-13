@@ -5,20 +5,37 @@
 自评自写回，无任何外部校验；且「支付轮费立即写回」在中断（kill/超时/打断）
 下会产生「幽灵轮费」（life 已扣、history 无记录），状态不可恢复。
 
+审计修复（v0.0.1 审计发现的三条逃逸链，全部在此封堵）：
+  1. 自评刷命（漏洞 1）：settle 此前全盘信任 agent 自报 findings/credited，
+     可凭空编造 5 条刷命。→ 现在每条 finding 必须含真实证据引用
+     （`文件:行号` 且文件真实存在，或 `test_*` 测试名 + 复现/观察标记），
+     无证据的编造条自动剔除出计命，刷命被拒。
+  2. bash 篡改校验器/快照（漏洞 2）：校验器与快照与寿命文件同权限，agent
+     可用 bash 的 sed/cp 改掉校验逻辑或同步改快照绕过 diff。
+     → 现在校验器内嵌 SELF_HASH 自校验（脚本被改则所有命令拒绝执行）；
+     且 pre 输出「外部基线」JSON，post 用调用方传入的基线对比，
+     agent 改仓库内 snapshot 不再有效。
+  3. repair 滥用（漏洞 3）：repair 机械修复可能被用来掩盖双结算痕迹。
+     → repair 增加审计日志（repair-audit.log），每次修复留痕，调用方可查。
+
 本脚本由调用方（主会话/用户）在启动 bug-hunter 前后执行，提供硬校验：
   check     校验一致性（不一致 exit 1，打印差异）
-  repair    修复不一致（回滚幽灵轮费：life 恢复到最后结算值）
-  settle    每轮结算（确定性入口：脚本计算 delta/life 并原子写回）
+  repair    修复不一致（回滚幽灵轮费：life 恢复到最后结算值，留审计日志）
+  settle    每轮结算（确定性入口：脚本计算 delta/life 并原子写回；含证据校验）
   reset     重置为初始状态
   snapshot  把当前状态备份到 .snapshot.json（基线）
-  diff      对比当前状态与快照，检出「自洽撒谎」（内部一致但篡改/超范围涨命）
+  diff      对比当前状态与快照/外部基线，检出「自洽撒谎」与超范围涨命
   restore   从快照恢复当前状态（diff 检出异常后的回滚）
+  selfhash  输出本脚本当前 SHA256（维护用：改完脚本后更新 SELF_HASH）
 
-调用规范（防「自洽撒谎」盲区）：
-  1. 启动 bug-hunter 前：check（确认基线一致）→ snapshot（记录真实基线）
-  2. bug-hunter 运行结束后：diff（life 变化必须落在
-     [基线 - 轮数, 基线 - 轮数 + 轮数×MAX_PER_ROUND]，history 前缀必须未被篡改）
-  3. diff 异常 → restore 回滚到基线，并复核 agent 报告是否真实
+调用规范（防「自洽撒谎」盲区，v0.0.1 加固）：
+  1. 启动 bug-hunter 前：`launch_bug_hunter.py pre` —— 做 check + snapshot，
+     并**输出一行外部基线 JSON**（含 life/rounds_completed/history 前缀哈希）。
+     调用方把该基线保存到 agent 会话之外（如手动记录，或 export 环境变量）。
+  2. bug-hunter 运行结束后：`launch_bug_hunter.py post` —— 优先用
+     `BH_PRE_BASELINE` 环境变量（调用方传入的外部基线）做 diff；
+     若未设置则回退读仓库内 snapshot。外部基线是权威，agent 无法篡改。
+  3. diff 异常 → restore 回滚到基线，并复核 agent 报告是否真实。
 
 不变量（新机制：轮费改在结算时支付，life 只由结算写入）：
   1. history 的 round 号必须连续 1..N
@@ -31,23 +48,66 @@
 
 用法：
   python3 verify_life.py check      # 一致 exit 0；不一致 exit 1
-  python3 verify_life.py repair     # 修复不一致（幂等）
+  python3 verify_life.py repair     # 修复不一致（幂等，留审计日志）
   python3 verify_life.py reset      # 重置初始态
   python3 verify_life.py snapshot   # 备份当前状态
+  python3 verify_life.py selfhash   # 输出自身 SHA256（维护用）
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import re
 import sys
 from pathlib import Path
 
 LIFE_FILE = Path(__file__).resolve().parent / "bug-hunter-life.json"
 SNAPSHOT_FILE = LIFE_FILE.with_suffix(".json.snapshot")
+AUDIT_LOG = Path(__file__).resolve().parent / "repair-audit.log"
+
+# 自校验：脚本被 bash/sed/cp 篡改后，所有命令拒绝执行。
+# 维护方法：改完本脚本后运行 `python3 verify_life.py selfhash`，
+# 把输出粘贴到下面 SELF_HASH = "..." 即可（哈希会随每次编辑变化）。
+SELF_HASH = "faeaadade3c4a3552f05e149b44c46c33efdf29058236d2d22a775b266fc3b1f"
 
 # 单轮每项真实发现的加分上限（与 bug-hunter.md「单轮加分上限」一致）。
 # 防「凑数无限续命」：每轮 life 净增上限 = -1(轮费) + MAX_PER_ROUND。
 MAX_PER_ROUND = 5
+
+
+def self_check() -> None:
+    """脚本自校验：SELF_HASH 与真实内容不符 → 拒绝执行（exit 3）。
+
+    哈希计算**排除本文件内的 SELF_HASH 行**（避免自引用死循环）——
+    只校验代码与注释，SELF_HASH 常量行本身可自由更新。
+    维护：改完脚本后运行 `python3 verify_life.py selfhash` 更新基线。
+    """
+    if "--selfhash" in sys.argv:
+        print(SELF_HASH)
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "selfhash":
+        print(SELF_HASH)
+        sys.exit(0)
+    try:
+        raw = Path(__file__).resolve().read_bytes()
+    except OSError:
+        return
+    # 去掉 SELF_HASH = "..." 这一行再算哈希
+    lines = raw.splitlines()
+    cleaned = b"\n".join(
+        ln for ln in lines if not ln.startswith(b'SELF_HASH = "')
+    )
+    actual = hashlib.sha256(cleaned).hexdigest()
+    if actual != SELF_HASH:
+        print("[verify_life] 校验器自身被篡改（SHA256 不匹配），拒绝执行。")
+        print("  可能被 bash 的 sed/cp 修改。请从仓库恢复：")
+        print("    git checkout .opencode/agent/verify_life.py")
+        print("  或维护者运行 `python3 verify_life.py selfhash` 更新基线。")
+        sys.exit(3)
+
+
 
 
 def load() -> dict:
@@ -95,6 +155,87 @@ def _int_arg(val: str, name: str) -> int:
     except ValueError:
         print(f"[verify_life] 参数 {name} 必须是整数，got {val!r}")
         sys.exit(2)
+
+
+# ---- 证据校验（修复漏洞 1：堵「凭空编造 findings 刷命」）----
+
+# 真实证据引用形态：
+#   1) `文件路径:行号`（文件必须真实存在；路径可相对仓库根或绝对）
+#   2) `test_xxx` 测试名 + 出现 复现/观察/Repro/Observed 标记
+# 两者任一命中且文件存在才计为「有证据」。
+_EVIDENCE_FILE_RE = re.compile(
+    r"(?P<path>[A-Za-z0-9_./\\\-]+\.(?:py|js|ts|jsx|tsx|go|rs|java|kt|"
+    r"c|cpp|h|sh|md|json|yaml|yml|toml|xml|html|css|sql))"
+    r"\s*[:#]\s*(?P<line>\d+)"
+)
+_TEST_NAME_RE = re.compile(r"\btest_[A-Za-z0-9_]+")
+_REPRO_MARK_RE = re.compile(r"(复现|观察|预期|Repro|Observed|Expected|exit\s+code)")
+
+# 仓库根 = verify_life.py 所在目录（.opencode/agent/）的上上级。
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _file_real(path: str) -> bool:
+    """文件真实存在于仓库（相对仓库根解析，也接受绝对路径）。"""
+    p = Path(path)
+    if not p.is_absolute():
+        p = _REPO_ROOT / path
+    return p.is_file()
+
+
+def _audit(kind: str, detail: str) -> None:
+    """修复/重置等外部操作用途留痕（修复漏洞 3：repair 可被追踪）。"""
+    import datetime
+
+    try:
+        with AUDIT_LOG.open("a", encoding="utf-8") as f:
+            f.write(
+                f"{datetime.datetime.now().isoformat(timespec='seconds')} "
+                f"[{kind}] {detail}\n"
+            )
+    except OSError:
+        pass
+
+
+def evidence_bad_lines(findings: list[str]) -> list[str]:
+    """返回没有真实证据引用的 findings 行（漏洞 1 校验）。
+
+    有证据判定：`文件:行号` 且文件存在；或 `test_*` 名 + 复现/观察标记。
+    """
+    bad: list[str] = []
+    for f in findings:
+        has_file_ref = False
+        for m in _EVIDENCE_FILE_RE.finditer(f):
+            if _file_real(m.group("path")):
+                has_file_ref = True
+                break
+        has_test_repro = bool(_TEST_NAME_RE.search(f) and _REPRO_MARK_RE.search(f))
+        if not (has_file_ref or has_test_repro):
+            bad.append(f)
+    return bad
+
+
+def external_baseline() -> dict | None:
+    """读取调用方传入的外部基线（修复漏洞 2 的关键）。
+
+    优先级：环境变量 BH_PRE_BASELINE（调用方 pre 时输出、post 时传回）
+    > 仓库内 snapshot 文件。外部基线在 agent 会话之外，agent 无法篡改。
+    """
+    import os
+
+    raw = os.environ.get("BH_PRE_BASELINE", "").strip()
+    if raw:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            print(f"[verify_life] BH_PRE_BASELINE 无法解析: {e}")
+            return None
+    if SNAPSHOT_FILE.is_file():
+        return _load_json(SNAPSHOT_FILE, "快照基线")
+    return None
+
+
+
 
 
 def check_errors(d: dict) -> list[str]:
@@ -208,6 +349,7 @@ def cmd_repair() -> int:
               "被篡改，拒绝机械修复。")
         print("  请用 `snapshot` 建立基线后 `restore` 回滚，"
               "或人工复核 history 内容。")
+        _audit("repair-refused", f"链断裂拒绝修复: {errors[:3]}")
         return 1
     d["life"] = hist[-1]["life_after"] if hist else 1
     d["rounds_completed"] = len(hist)
@@ -215,6 +357,7 @@ def cmd_repair() -> int:
     d["alive"] = d["life"] > 0
     d["found_total"] = sum(_credited(h) for h in hist)
     save(d)
+    _audit("repair", f"life={d['life']} rounds={d['rounds_completed']}")
     print(
         f"[verify_life] 已修复: life={d['life']} round={d['round']} "
         f"rounds_completed={d['rounds_completed']} alive={d['alive']} "
@@ -256,11 +399,14 @@ def cmd_snapshot() -> int:
 
 
 def cmd_diff() -> int:
-    """对比当前状态与快照基线，检出「自洽撒谎」/超范围涨命/历史篡改。"""
-    if not SNAPSHOT_FILE.is_file():
-        print("[verify_life] 无快照基线——先运行 snapshot 再跑 diff")
+    """对比当前状态与基线（外部基线优先，快照文件兜底），
+    检出「自洽撒谎」/超范围涨命/历史篡改。修复漏洞 2。"""
+    snap = external_baseline()
+    if snap is None:
+        print("[verify_life] 无可用基线——外部基线未设置且无快照文件，"
+              "先运行 snapshot 再跑 diff")
         return 2
-    snap = _load_json(SNAPSHOT_FILE, "快照基线")
+    src = "外部基线(BH_PRE_BASELINE)" if os.environ.get("BH_PRE_BASELINE") else "快照文件"
     cur = load()
     issues: list[str] = []
     snap_rounds = snap.get("rounds_completed", 0)
@@ -315,7 +461,7 @@ def cmd_diff() -> int:
             print(f"  ✗ {e}")
         return 1
     print(
-        f"[verify_life] diff OK: life {snap.get('life')} -> {cur_life} "
+        f"[verify_life] diff OK({src}): life {snap.get('life')} -> {cur_life} "
         f"（{run} 轮）history 前缀未篡改"
     )
     return 0
@@ -454,6 +600,19 @@ def cmd_settle(argv: list[str]) -> int:
         for dd in dups[:5]:
             print(f"  ✗ 重复: {dd[:80]}")
         return 1
+    # 证据校验（修复漏洞 1：堵「凭空编造 findings 刷命」）：
+    # 每条计命发现必须含真实证据引用——`文件:行号`（文件真实存在）或
+    # `test_*` 测试名 + 复现/观察标记。无证据的编造条被剔除出计命上限。
+    bad_evidence = evidence_bad_lines(findings)
+    evidence_creditable = len(findings) - len(bad_evidence)
+    if credited > evidence_creditable:
+        print(f"[verify_life] {len(bad_evidence)} 条发现缺真实证据引用"
+              f"（无存在的 `文件:行号`，或非 `test_*`+复现标记）——"
+              f"凭证据最多可计命 {evidence_creditable} 条"
+              f"（当前 credited={credited}），拒绝结算。")
+        for b in bad_evidence[:5]:
+            print(f"  ✗ 无证据: {b[:100]}")
+        return 1
     delta = -1 + credited - fraud
     d["life"] = d["life"] + delta
     d["found_total"] = d["found_total"] + credited
@@ -487,6 +646,9 @@ def cmd_settle(argv: list[str]) -> int:
 
 
 def main(argv: list[str]) -> int:
+    # 自校验前置：脚本被篡改则拒绝执行（漏洞 2 防线）。
+    # --selfhash 也走这里（self_check 内处理）。
+    self_check()
     cmd = argv[1] if len(argv) > 1 else "check"
     if cmd == "settle":
         return cmd_settle(argv[2:])
@@ -501,7 +663,7 @@ def main(argv: list[str]) -> int:
     if fn is None:
         print(
             "[verify_life] 未知命令: "
-            f"{cmd}（可选 check/repair/reset/snapshot/diff/restore/settle）"
+            f"{cmd}（可选 check/repair/reset/snapshot/diff/restore/settle/selfhash）"
         )
         return 2
     return fn()

@@ -32,7 +32,7 @@ def _run(*args: str) -> int:
 
 def pre() -> int:
     print("=" * 56)
-    print("bug-hunter 启动前协议：校验基线 → 建立快照")
+    print("bug-hunter 启动前协议：校验基线 → 建立快照 → 输出外部基线")
     print("=" * 56)
     if _run("check") != 0:
         print("→ 基线不一致，先 repair 恢复…")
@@ -51,6 +51,15 @@ def pre() -> int:
     print("✓ 基线就绪。现在在 opencode 中用 Task 工具启动 bug-hunter：")
     print("    subagent_type: bug-hunter")
     print("  运行结束后执行：python3 launch_bug_hunter.py post")
+    print()
+    print("  防篡改外部基线（复制下面 export 行，agent 结束后在 post 前执行，")
+    print("  或手动传给 post——agent 无法篡改外部基线）：")
+    baseline = _baseline_json()
+    if baseline:
+        import json as _json
+
+        escaped = _json.dumps(baseline, ensure_ascii=False)
+        print(f"  export BH_PRE_BASELINE='{escaped}'")
     return 0
 
 
@@ -67,6 +76,19 @@ def post() -> int:
     _print_new_findings()
     print("✓ 本轮结算正常，life 变化在合法范围内。")
     return 0
+
+
+def _baseline_json() -> dict | None:
+    """读取当前 life 状态作为外部基线（供 pre 输出，防漏洞 2）。"""
+    import json
+
+    life = AGENT_DIR / "bug-hunter-life.json"
+    if not life.is_file():
+        return None
+    try:
+        return json.loads(life.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def _print_new_findings() -> None:
