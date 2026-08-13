@@ -29,6 +29,7 @@
 | `.opencode/agent/verify_life.py` | 寿命校验器（check/settle/snapshot/diff/restore） |
 | `.opencode/agent/launch_bug_hunter.py` | 启动协议（pre/post/status） |
 | `.opencode/agent/lockdown.sh` | OS 层加固（把校验器/基线设为只读） |
+| `.opencode/agent/setup_ui_env.py` | UI 环境自检/自动补装（node/playwright/浏览器） |
 | `.opencode/agent/mistake-book.md` | 错题集（反思归类复用） |
 | `.opencode/agent/bug-hunter-life.json` | 寿命状态（运行时生成，不入库） |
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
@@ -229,8 +230,14 @@ agent 会按标准流程执行：
 > 若放在全局 agent 目录且面向任意项目，需把脚本路径改为绝对路径。
 
 **Q: UI 挖 bug 报"Playwright 不可用"？**
-> 确认 `opencode.json` 存在且 npx 可用（`npx @playwright/mcp@latest`）。
-> 首次运行会自动下载浏览器，需网络。
+> 先跑 `python3 .opencode/agent/setup_ui_env.py check` 看缺什么，再跑
+> `install` 自动补装（node/playwright/浏览器）。补装后**重启 opencode 会话**
+> 让 MCP 工具生效（MCP 在启动时加载，运行中不能热注册）。
+
+**Q: 缺少 MCP 能自动安装吗？**
+> 分两层：底层**运行时依赖**（node、@playwright/mcp、Chromium）可自动检测并
+> 补装（`setup_ui_env.py install`）；但 **MCP 工具本身**由 opencode 启动时加载，
+> agent 无法在会话中给自己热注册新 MCP server——补装完依赖后需重启会话生效。
 
 ---
 

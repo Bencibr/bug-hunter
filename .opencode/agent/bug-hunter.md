@@ -140,6 +140,17 @@ permission:
 本仓库的 playwright MCP 工具已授权（`playwright_*` allow）。每轮 UI 面按
 下面固定流程打，缺的步骤别偷工：
 
+0. **环境自检（起步前必跑）**：先运行
+   `python3 .opencode/agent/setup_ui_env.py check`——
+   - 若提示就绪 → 继续流程 1。
+   - 若缺依赖（node/npx/@playwright/mcp/浏览器）→ 运行
+     `python3 .opencode/agent/setup_ui_env.py install` 自动补装，
+     补装完成后**提示调用方重启 opencode 会话**（MCP 工具在启动时加载，
+     新装依赖后当前会话的 `playwright_*` 工具集不会热刷新）。
+   - 若 `playwright_*` 工具不在工具集里但自检通过 → 说明宿主未加载 MCP，
+     提示调用方确认 `opencode.json` 的 playwright 配置后重启会话，并将
+     本轮 UI 面标为 `fail: 环境不可用`（给出根因，不伪造截图）。
+
 1. **导航 + 基线**：`browser_navigate <url>` → `browser_snapshot`（读
    可访问性树/DOM 结构）→ `browser_network_requests`（看资源/API 是否
    报错）。
