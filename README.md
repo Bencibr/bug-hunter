@@ -1,6 +1,6 @@
 # Bug-Hunter Agent
 
-> **Version 0.0.1** · [Git tag: v0.0.1](https://gitea.sp.dev/AI/bug-hunter)
+> **Version 0.0.1** · [Git tag: v0.0.1](https://github.com/Bencibr/bug-hunter)
 
 永无止境地挖掘错误的对抗性审计 Agent。白盒源码审计 + 黑盒成品测试
 （CLI / PTY / 数据接口 / **UI 视觉交互面**），多轮循环机制：每轮消耗
@@ -54,7 +54,7 @@
 本项目已内置 `.opencode/agent/bug-hunter.md` 和 `opencode.json`，clone 后即用。
 
 ```bash
-git clone https://gitea.sp.dev/AI/bug-hunter.git
+git clone https://github.com/Bencibr/bug-hunter.git
 cd bug-hunter
 ```
 
