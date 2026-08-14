@@ -73,15 +73,16 @@ class ConsistencyTestCase(unittest.TestCase):
         self.assertEqual(missing, [], f"README 引用了不存在的文件: {missing}")
 
     def test_required_md_templates_exist(self):
-        """agent 依赖的三个清单文件必须存在。"""
-        for name in ("mistake-book.md", "bug-log.md", "module-coverage.md"):
+        """agent 依赖的清单文件必须存在（含工具知识库）。"""
+        for name in ("mistake-book.md", "bug-log.md", "module-coverage.md",
+                     "tools-kb.md"):
             self.assertTrue((AGENT / name).is_file(), f"缺少 {name}")
 
     def test_research_before_output_is_hard_gate(self):
-        """防「记忆库偷懒」逃逸：调研必须是硬性前置，未经搜索不得输出工具清单。"""
+        """防「记忆库偷懒」逃逸：调研必须走本地优先→搜索兜底，禁止凭记忆输出。"""
         bh = BUG_HUNTER.read_text(encoding="utf-8")
-        self.assertIn("未经实际搜索不得输出方案", bh,
-                      "宪法调研必须是硬性前置（防记忆库偷懒）")
+        self.assertIn("本地优先", bh,
+                      "调研必须本地优先（tools-kb 优先）")
         self.assertIn("记忆库偷懒", bh,
                       "反模式必须定义「记忆库偷懒」逃逸")
         self.assertIn("搜索是行为不是记忆", bh,

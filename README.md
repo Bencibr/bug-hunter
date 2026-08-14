@@ -36,8 +36,9 @@
    fuzz/minimize/corpus + postmcp（API 接口面）+ playwright（UI 面）+ 系统
    timeout/objdump/curl/coverage，按场景选工具、缺的先装/先造再打，不硬凿。
  - **兵马未动，粮草先行（开工第一宪法）**：工具没准备好，绝不开工。开工前
-  四步：① 知彼（了解项目是什么/什么功能/什么栈）② 调研（**必须实际搜索网上
-  最新方案，未经搜索不得输出工具清单**——禁止记忆库偷懒）③ 定策（**先定
+  四步：① 知彼（了解项目是什么/什么功能/什么栈）② 调研（**本地优先→搜索
+  兜底**：先查 `tools-kb.md` 工具知识库，命中则复用（除非用户要求重搜），
+  未命中才真实搜索并回写本库——禁止记忆库偷懒）③ 定策（**先定
   测试类型黑盒/白盒/自动化，再按项目类型选工具**：黑盒→postmcp/playwright/
   agent-tty/数据库 MCP/模糊，白盒→语言专项 JUnit/JaCoCo/SpotBugs 等，
   自动化→项目测试命令+自研工具；**只装当前项目需要的**，复杂项目多工具按
@@ -88,6 +89,7 @@
 | `.opencode/agent/mistake-book.md` | 错题集（反思归类复用） |
 | `.opencode/agent/bug-log.md` | bug 记录清单（只记录模式的产物 + 全模式去重依据） |
 | `.opencode/agent/module-coverage.md` | 模块覆盖清单（化整为零：拆分模块 + 覆盖追踪） |
+| `.opencode/agent/tools-kb.md` | 工具知识库（本地优先：搜索验证过的工具沉淀，同类型项目直接复用） |
 | `.opencode/agent/minimize_repro.py` | 失败输入最小化工具（ddmin，根因集中 + 举证加速） |
 | `.opencode/agent/fuzz_input.py` | 变异模糊矩阵工具（并发批量轰输入，筛异常样本） |
 | `.opencode/agent/corpus_fetch.py` | 种子扩充工具（并发搜 GitHub 开源项目，纳入 seed_corpus/） |
@@ -376,6 +378,12 @@ agent 会按标准流程执行：
 ---
 
 ## 常见问题
+
+**Q: 工具选择是每次重新搜索吗？**
+> 不是。走「本地优先 → 搜索兜底」：先查 `.opencode/agent/tools-kb.md` 工具
+> 知识库——同类型项目命中则直接复用（除非你明确要求重新搜索）；未命中才
+> 真实搜索，搜完把工具+来源+日期回写本库。知识持续积累，既不用每次重搜，
+> 也不靠 agent 记忆（本库是带来源的本地证据，不是记忆）。
 
 **Q: postmcp 没装会怎样？**
 > agent 会自动检测：工具集缺 `postmcp_*` 时运行
