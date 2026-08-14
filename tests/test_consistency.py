@@ -79,7 +79,7 @@ class ConsistencyTestCase(unittest.TestCase):
             self.assertTrue((AGENT / name).is_file(), f"缺少 {name}")
 
     def test_research_before_output_is_hard_gate(self):
-        """防「记忆库偷懒」逃逸：调研必须走本地优先→搜索兜底，禁止凭记忆输出。"""
+        """防「记忆库偷懒」逃逸：调研必须本地优先→搜索兜底，禁止凭记忆输出。"""
         bh = BUG_HUNTER.read_text(encoding="utf-8")
         self.assertIn("本地优先", bh,
                       "调研必须本地优先（tools-kb 优先）")
@@ -87,6 +87,10 @@ class ConsistencyTestCase(unittest.TestCase):
                       "反模式必须定义「记忆库偷懒」逃逸")
         self.assertIn("搜索是行为不是记忆", bh,
                       "哲学必须强调搜索是行为不是记忆（通用性来源）")
+        self.assertIn("30 天", bh,
+                      "调研必须含 30 天有效期（工具知识会过期）")
+        self.assertIn("过期知识复用", bh,
+                      "反模式必须定义「过期知识复用」逃逸（>30 天仍直接用）")
 
 
 if __name__ == "__main__":
