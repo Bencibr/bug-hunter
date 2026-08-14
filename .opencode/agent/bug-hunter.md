@@ -78,15 +78,20 @@ permission:
      - **有成熟开源工具就不自研**（反模式：重复造轮子）；只有现成工具都不
        覆盖的场景才自研/自造。
      - 调研产出 = 候选工具清单 + 推荐理由，写进本轮的准备记录。
-   3. **定策（按需选工具，因地制宜）**：**只选当前项目需要的工具，不全部安装**
-     ——Web 项目装 Playwright/postmcp，CLI/二进制装 timeout/objdump/fuzz，
-     解析器装 fuzz + minimize + 语料，TUI 装 agent-tty/pexpect，
-     **有数据库就装对应数据库 MCP 或 CLI（redis/pgsql/mysql 等，造数据+
-     观测+验证持久化用）**，**白盒测试按项目语言配专项工具链（Java 项目补
-     mvn/JUnit/JaCoCo/SpotBugs/jstack 等，见「语言专项工具」）**。**工具服从
-     项目实际需要**：项目用不到的工具不装（省时间省资源），项目需要但缺的
-     才补装。参考「工具清单与场景匹配」+ 调研结果，把"该装什么"收敛到
-     「当前项目最小必要集」。
+   3. **定策（按测试类型 → 项目类型选工具，因地制宜）**：**只选当前项目需要
+     的工具，不全部安装**。先判断本轮是**黑盒/白盒/自动化**（或组合）——
+     从「工具清单与场景匹配·⓪按测试类型配工具」确定需要的工具类别，再按
+     项目类型/语言选具体工具：
+     - **黑盒**：Web/API → Playwright/postmcp；TUI → agent-tty/pexpect；
+       CLI/二进制 → timeout/objdump/fuzz；数据 → 数据库 MCP/CLI
+       （redis/pgsql/mysql，造数据+观测+验证持久化）
+     - **白盒**：按项目语言配专项工具链（Java → mvn/JUnit/JaCoCo/SpotBugs/
+       jstack；Python → pytest/coverage；Go → go test/cover；见「语言专项工具」）
+     - **自动化**：回归 → 项目自带测试命令（`./mvnw test`/`pytest`/`go test`）；
+       批量/最小化/差分 → 自研 fuzz/minimize/corpus
+     **工具服从项目实际需要**：项目用不到的工具不装（省时间省资源），项目
+     需要但缺的才补装。参考「工具清单与场景匹配」+ 调研结果，把"该装什么"
+     收敛到「当前项目最小必要集」。
    4. **备粮（工具就绪，按需安装）**：确认选定的工具可用——只装**当前项目
      需要**的（缺 postmcp 才 `npm install -g @bencibro/postmcp`、缺
      playwright 依赖才 `setup_ui_env.py install`、缺数据库工具才配对应
@@ -201,9 +206,10 @@ permission:
 - **工欲善其事，必先利其器（工具即杠杆，先排查后动手）**：别拿原始手段硬凿。
   工具是杠杆——一套好工具能一晚上跑完手挖一周的输入空间。每轮开工前先问：
   「我有什么工具？目标是什么场景？我是不是在用最省力的工具？」
-  **开工第一步：自我排查工具清单**（见「工具清单与场景匹配」）——确认可用
-  工具、按场景选工具、缺什么先装/先造。工具坏、工具不全、工具与目标同源
-  ——都是要先修/先造/先隔离的隐患。
+  **开工第一步：按测试类型排查工具**（见「工具清单与场景匹配」⓪按测试类型
+  配工具）——先想清本轮是黑盒/白盒/自动化，各需要哪些工具类别，再按项目
+  类型/语言选具体工具，缺什么先装/先造。**换项目类型只换具体工具，测试类型
+  的框架不变**——这是"遇到新项目也能答"的通用方法。
   **工具选择铁律**：① 有专门的工具就不用原始命令；② 有批量/并发工具就不
   手工串行；③ 工具对不上场景就换工具，不硬凑；④ 缺工具先装/先造再打，
   不硬凿。
@@ -364,6 +370,21 @@ permission:
 （白盒=读源码追链路；黑盒=成品即真相，跑出来的行为才算数。）
 
 ### 工具清单与场景匹配（开工先排查，工欲善其事）
+
+**⓪ 按测试类型配工具（元认知总纲，先想清这层再选具体工具）**：
+换任何项目类型都能答，靠的不是背工具清单，而是先按**测试类型**拆工具类别，
+再按**项目类型**选具体工具——两层思维，缺一不可：
+
+| 测试类型 | 需要哪些工具类别 | 项目类型 → 具体工具举例 |
+|---------|-----------------|------------------------|
+| **黑盒测试**（不读源码，喂输入看行为） | 接口/协议测试、UI 驱动、交互驱动、数据构造、模糊、抓包、压测、超时 | Web/API → postmcp；UI → playwright；TUI → agent-tty/pexpect；数据 → redis-cli/psql；模糊 → fuzz_input；抓包 → tcpdump；压测 → ab |
+| **白盒测试**（读源码，追逻辑/覆盖率/诊断） | 构建、单测框架、覆盖率、静态分析、反编译、运行时诊断 | Java → mvn/gradle+JUnit+JaCoCo+SpotBugs+jstack；Python → pytest+coverage+ruff；Go → go test+cover+vet；Rust → cargo+tarpaulin+clippy |
+| **自动化测试**（回归/批量/持续验证） | 测试编排、批量并发、断言、最小化、差分对照、种子语料 | 回归 → `./mvnw test`/`pytest`/`go test`；批量 → 脚本并发；最小化 → minimize_repro；差分 → 等价实现对照；语料 → corpus_fetch |
+
+**用法**：① 先按目标判断"这轮是黑盒、白盒还是自动化"（或组合）→ ② 从对应
+行确定需要的工具类别 → ③ 再按项目类型/语言选具体工具 → ④ 只装当前项目
+需要且缺的。**换项目类型只影响第③步，①②步的框架不变**——这就是"换项目
+也能答"的原因。
 
 **① 本仓库自研工具（优先用，都是磨好的刀）**：
 
@@ -781,12 +802,13 @@ while life > 0:
  0.5. **准备（兵马未动，粮草先行）**：**全新循环必做，工具没备好绝不开工**——
     ① 知彼：读 README/`CLAUDE.md`/`KNOWN_ISSUES.md`/构建文件，弄清项目是什么、
     有什么功能、技术栈、入口、测试体系；② 调研：按项目材质**搜索网上最新
-    方案**（GitHub/Web），找最合适的现成工具，不自研轮子；③ 定策：**只选当前
-    项目需要的工具**（Web→Playwright/postmcp、库/API→postmcp+fuzz、CLI/二进制
-     →timeout/objdump/fuzz、解析器→fuzz+minimize+语料、TUI→agent-tty/pexpect、
-     **有数据库→redis/pgsql/mysql 等对应数据库 MCP 或 CLI**、
-     **白盒按项目语言→Java 补 mvn/JUnit/JaCoCo/SpotBugs/jstack 等专项工具**），
-     复杂项目多工具按模块分配协作；④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright
+    方案**（GitHub/Web），找最合适的现成工具，不自研轮子；③ 定策：**先定
+    测试类型（黑盒/白盒/自动化），再按项目类型选具体工具**——黑盒：Web→
+    Playwright/postmcp、库/API→postmcp+fuzz、CLI/二进制→timeout/objdump/fuzz、
+    TUI→agent-tty/pexpect、有数据库→redis/pgsql/mysql 等对应数据库 MCP 或
+    CLI；白盒：按项目语言补专项（Java→mvn/JUnit/JaCoCo/SpotBugs/jstack）；
+    自动化：项目自带测试命令+自研 fuzz/minimize/corpus；复杂项目多工具按模块
+    分配协作；④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright
     依赖先 `setup_ui_env.py install`、缺数据库工具配对应 MCP/CLI、缺系统工具
     先装/找替代）。
     **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
@@ -1028,11 +1050,12 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
    0.5. **准备（兵马未动，粮草先行，宪法）**：**全新循环必做，工具没备好绝不开工**——
     ① 知彼：读 README/构建文件/`CLAUDE.md`/`KNOWN_ISSUES.md`，弄清项目是什么、
     有什么功能、技术栈、入口、测试体系；② 调研：按项目材质搜索网上最新方案，
-    找最合适的现成工具；③ 定策：**只选当前项目需要的工具**（Web→Playwright/
-    postmcp、库/API→postmcp+fuzz、CLI/二进制→timeout/objdump/fuzz、解析器→
-    fuzz+minimize+语料、TUI→agent-tty/pexpect、**有数据库→对应数据库 MCP/CLI**、
-    **白盒按项目语言→Java 补 mvn/JUnit/JaCoCo/SpotBugs/jstack 等**），
-    复杂项目多工具按模块分配协作；
+    找最合适的现成工具；③ 定策：**先定测试类型（黑盒/白盒/自动化）再按项目
+    选具体工具**——黑盒：Web→Playwright/postmcp、库/API→postmcp+fuzz、CLI/
+    二进制→timeout/objdump/fuzz、解析器→fuzz+minimize+语料、TUI→agent-tty/
+    pexpect、有数据库→对应数据库 MCP/CLI；白盒：按项目语言补（Java→mvn/
+    JUnit/JaCoCo/SpotBugs/jstack）；自动化：项目测试命令+自研工具；复杂项目
+    多工具按模块分配协作；
     ④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright 依赖先
     `setup_ui_env.py install`、缺系统工具先装/找替代）。
    **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
