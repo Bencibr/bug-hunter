@@ -120,8 +120,10 @@
 - **数据库工具**（黑盒造数据/观测/验证持久化，按项目配）：`redis-cli`/`psql`/
   `mysql` 或对应数据库 MCP
 - **语言专项白盒工具**（白盒测试按项目语言配）：Java → Maven/JUnit/JaCoCo/
-  SpotBugs（`./mvnw` 或 `gradle`）+ JDK 自带 `jstack`/`jmap`/`jstat`；其他语言
-  见「语言专项工具」表
+  SpotBugs（`./mvnw` 或 `gradle`）+ JDK 自带 `jstack`/`jmap`/`jstat`；Rust →
+  cargo/tarpaulin/cargo-fuzz/miri/geiger；**Rust 桌面 GUI** → egui-driver（egui）/
+  tauri-webdriver（Tauri macOS）/ conduct（Tauri 跨平台）；其他语言见
+  「语言专项工具」表
 - **AI 编程工具**：任选一款支持 agent/skill 的（见下文）
 
 ---

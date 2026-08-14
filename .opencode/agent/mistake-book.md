@@ -137,7 +137,7 @@
 2. **发现后反思**：每确认一个真实 bug，按上面 12 类归到最贴近的一类，追加一条错题记录（现象/根因/反思/同类排查点/实例）。
 3. **归类不重复**：同一根因不同文件算一条（合并）；新类别出现时在分类表新增。
 4. **修复硬门槛**：`fixed` = TDD 红→绿 + **Live 真实环境复验通过**（原始复现命令重跑 / 同视口截图几何断言），缺 Live 证据只算单测绿，不算修好。
-5. **工欲善其事·按测试类型配工具（先想清黑盒/白盒/自动化再选具体工具）**：开工先排查工具清单——**先定测试类型**：黑盒（postmcp API + playwright UI + agent-tty/pexpect TUI + 数据库 MCP/CLI + fuzz/minimize + 系统 timeout/objdump/curl/tcpdump）、白盒（按项目语言：Java→mvn/JUnit/JaCoCo/SpotBugs/jstack，Python→pytest/coverage，Go→go test/cover，Rust→cargo/tarpaulin）、自动化（项目测试命令 + 自研 fuzz/minimize/corpus 批量/最小化/差分）。**按项目材质搜索网上最新方案**找现成工具，有成熟开源工具就不自研轮子（如 TUI 用 agent-tty/pexpect 而非手写 PTY harness）；**只装当前项目需要的工具**（不全部装），复杂项目多工具按模块分配协作；**换项目类型只换具体工具，测试类型框架不变**；场景→工具速查见 bug-hunter.md「工具清单与场景匹配」。
+5. **工欲善其事·按测试类型配工具（先想清黑盒/白盒/自动化再选具体工具）**：开工先排查工具清单——**先定测试类型**：黑盒（postmcp API + playwright UI + agent-tty/pexpect TUI + 数据库 MCP/CLI + fuzz/minimize + 系统 timeout/objdump/curl/tcpdump）、白盒（按项目语言：Java→mvn/JUnit/JaCoCo/SpotBugs/jstack，Python→pytest/coverage，Go→go test/cover，Rust→cargo/tarpaulin/cargo-fuzz/miri/geiger，**Rust 桌面 GUI→egui-driver（egui）/tauri-webdriver（Tauri macOS）/conduct（Tauri 跨平台）**）、自动化（项目测试命令 + 自研 fuzz/minimize/corpus 批量/最小化/差分）。**按项目材质搜索网上最新方案**找现成工具，有成熟开源工具就不自研轮子（如 TUI 用 agent-tty/pexpect 而非手写 PTY harness）；**只装当前项目需要的工具**（不全部装），复杂项目多工具按模块分配协作；**换项目类型只换具体工具，测试类型框架不变**；场景→工具速查见 bug-hunter.md「工具清单与场景匹配」。
 6. **兵马未动·知己知彼**：开工前先了解项目（是什么/什么功能/什么栈/入口/测试体系），按项目类型选工具，工具就绪才开工——三思而行、从不打无准备的仗；蒙眼开工/仓促上阵都是烧命。
 7. **应并发，尽并发**：勘察/挖掘/验证/修复多方向并发推进，错题集的多个「同类排查点」同时打；除独占资源/顺序依赖外一律并行，别串行磨洋工。
 8. **化整为零 + 先易后难 + 全覆盖宪法**：把审计范围拆成模块清单 `module-coverage.md`（每模块打难度/命中分），按难度升序先易后难调度、同难度内命中降序，卡住标「挂起」稍后补上；**全部模块必须 100% 覆盖**，死亡报告须 `已覆盖 Y/Y`，未覆盖/挂起须清零或有可豁免原因。

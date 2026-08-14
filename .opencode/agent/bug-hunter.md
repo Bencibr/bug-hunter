@@ -467,7 +467,7 @@ permission:
 | **Java** | mvn/gradle | JUnit 5（`./mvnw test`/`gradle test`） | JaCoCo（`gradle jacocoTestReport`/mvn jacoco） | SpotBugs/PMD/Checkstyle；反编译用 CFR（比 javap 强） |
 | **Python** | — | pytest | coverage | ruff/mypy/bandit |
 | **Go** | go build | go test | `go test -cover` | go vet/staticcheck |
-| **Rust** | cargo | cargo test | tarpaulin | clippy |
+| **Rust** | cargo | cargo test | tarpaulin | clippy/miri/geiger；cargo-fuzz/honggfuzz-rs 模糊 |
 | **JS/TS** | npm/yarn | vitest/jest | c8 | eslint/tsc |
 
 **白盒 Java 必备（本仓库工具未装全，按需补）**：
@@ -484,6 +484,30 @@ permission:
 `./mvnw` wrapper（项目自带）；没有 wrapper 才 `brew install maven`。JVM
 诊断工具（jps/jstack/jmap/jstat/jcmd）随 JDK 自带，`which` 确认即可。
 
+**Rust 桌面/GUI 专项（白盒+黑盒，按 GUI 框架选，调研自 GitHub 现成项目）**：
+- **原生 GUI（egui/iced/slint）**：
+  - `egui-driver`（GitHub: ryo33/egui-driver）— egui 应用自动化/测试专用，
+    **egui 项目的首选 GUI 驱动**（发事件/断言控件状态）
+  - `enigo` — 跨平台键盘/鼠标模拟（通用兜底）
+  - 截图对比（macOS `screencapture`）
+- **Tauri（Rust + Web 前端混合）**：
+  - `tauri-webdriver`（GitHub: danielraffel/tauri-webdriver）— **macOS Tauri
+    WebDriver**，专补 WKWebView 无原生 WebDriver 的缺口，自动化 E2E
+  - `conduct`（GitHub: matthunz/conduct，`tauri-driver` 的 Haskell 实现）—
+    Tauri 跨平台 driver
+  - 有 WebDriver 后可用 playwright 驱动 Tauri 内嵌 WebView + postmcp 测
+    `#[tauri::command]` IPC 契约（横向互证）
+- **Rust 模糊/漏洞挖掘**：
+  - `cargo-fuzz`（libFuzzer 原生 fuzz，**解析逻辑首选**）
+  - `honggfuzz-rs`（GitHub: rust-fuzz/honggfuzz-rs）— 谷歌 Honggfuzz 的 Rust 绑定
+  - `cargo miri` — unsafe 块未定义行为检查（Rust 特有的内存安全验证）
+  - `geiger`（`cargo geiger`）— 统计 crate 中 unsafe 代码量（定位 unsafe 热点）
+  - `cargo-audit`（`cargo install cargo-audit`）— 依赖漏洞扫描
+  - `proptest` — 属性测试（随机生成输入验证不变量）
+**工具纪律**：GUI 框架决定驱动工具（egui→egui-driver、Tauri→tauri-webdriver/
+conduct、其他→enigo），模糊用 cargo-fuzz/honggfuzz-rs，unsafe 审查用
+cargo-miri+geiger。**先调研项目用的 GUI 框架再选具体工具**（因地制宜）。
+
 **④ 场景→工具速查**：
 - 找解析器/格式崩溃 → `fuzz_input` + `minimize_repro` + 种子语料
 - 找 API 契约/越权/注入 → postmcp（导入 Swagger 全接口 + 参数边界 + 断言）
@@ -496,6 +520,11 @@ permission:
 - **白盒跑单测/回归（Java）→ `./mvnw test` 或 `gradle test`（JUnit 5）**
 - **找 Java 挂起/死锁 → jstack 线程 dump + jps 定位 PID**
 - **找 Java 内存泄漏/堆问题 → jmap 堆 dump + jstat GC 趋势**
+- **白盒挖 Rust unsafe/UB → cargo miri + cargo geiger（定位 unsafe 热点）**
+- **Rust 解析逻辑深度模糊 → cargo-fuzz / honggfuzz-rs（libFuzzer）**
+- **Rust 依赖漏洞 → cargo-audit**
+- **egui 桌面自动化 → egui-driver（GitHub ryo33/egui-driver）**
+- **Tauri E2E 自动化 → tauri-webdriver（macOS）/ conduct（跨平台）+ playwright 驱动 WebView**
 - 找性能/资源泄漏 → ab 压测 + `/proc` 观测
 - 找挂起/卡死 → `timeout` 包裹 + 超时观测
 - 找网络协议异常 → tcpdump 抓包 + nc 探测
