@@ -25,6 +25,9 @@ def run_launch(tmp: Path, *args: str) -> subprocess.CompletedProcess:
     """在隔离目录运行 launch_bug_hunter.py（连同 verify_life.py 副本）。"""
     shutil.copy(AGENT_DIR / "launch_bug_hunter.py", tmp)
     shutil.copy(AGENT_DIR / "verify_life.py", tmp)
+    shutil.copy(AGENT_DIR / "module_coverage.py", tmp)
+    shutil.copy(AGENT_DIR / "tools_kb.py", tmp)
+    shutil.copy(AGENT_DIR / "prep_validate.py", tmp)
     return subprocess.run(
         [sys.executable, str(tmp / "launch_bug_hunter.py"), *args],
         capture_output=True,
@@ -39,6 +42,26 @@ class LaunchBugHunterTestCase(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="launch-test-"))
         # 初始化一个干净的 life 文件供 launch 使用
         shutil.copy(AGENT_DIR / "verify_life.py", self.tmp)
+        shutil.copy(AGENT_DIR / "tools_kb.py", self.tmp)
+        shutil.copy(AGENT_DIR / "tools-kb.md", self.tmp)
+        shutil.copy(AGENT_DIR / "prep_validate.py", self.tmp)
+        (self.tmp / "prep-record.md").write_text(
+            "## 项目识别\n项目：test\n\n"
+            "## 测试类型\n黑盒：是\n\n"
+            "## 工具调研\n来源：https://github.com/example/tool；验证日期：2026-08-14\n\n"
+            "## 工具选择\n主工具：pytest\n\n"
+            "## 工具就绪\n可以开工：是\n\n"
+            "## 多工具协作\n模块分配：test→pytest\n\n"
+            "## 准备结论\n准备完成，可以开工\n",
+            encoding="utf-8",
+        )
+        # 提供一个隔离、已覆盖的合法清单，让 post 覆盖门禁可验证
+        (self.tmp / "module-coverage.md").write_text(
+            "| # | 模块 | 路径/范围 | 难度 | 命中 | 主工具 | 负责任务 | 依赖 | 状态 | 发现数 | 证据/测试 | 备注 |\n"
+            "|---|------|-----------|------|------|--------|----------|------|------|--------|-----------|------|\n"
+            "| 1 | test target | `.` | 1 | 1 | pytest | test-worker | 无 | 已覆盖 | 0 | verify_life.py:1 | ok |\n",
+            encoding="utf-8",
+        )
         subprocess.run(
             [sys.executable, "verify_life.py", "reset"],
             capture_output=True, cwd=self.tmp, timeout=30,
@@ -109,6 +132,26 @@ class LaunchBugHunterTestCase(unittest.TestCase):
         self.assertIn("已回滚", r.stdout)
         # 快照恢复后 life 回原值
         self.assertEqual(self.life()["life"], 1)
+
+    def test_post_final_rejects_uncovered_module(self):
+        """最终 post 必须阻止未覆盖模块通过。"""
+        self.assertEqual(run_launch(self.tmp, "pre").returncode, 0)
+        manifest = self.tmp / "module-coverage.md"
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace("| 已覆盖 |", "| 挖掘中 |"),
+            encoding="utf-8",
+        )
+        r = run_launch(self.tmp, "post", "--final")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("模块清单", r.stdout)
+
+    def test_post_rejects_missing_prep_record(self):
+        """准备记录缺失时 post 不能通过。"""
+        self.assertEqual(run_launch(self.tmp, "pre").returncode, 0)
+        (self.tmp / "prep-record.md").unlink()
+        r = run_launch(self.tmp, "post")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("准备记录", r.stdout)
 
     # ---- status ----
 

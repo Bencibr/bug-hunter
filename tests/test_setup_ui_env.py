@@ -34,11 +34,18 @@ class SetupUiEnvTestCase(unittest.TestCase):
         self.assertIn("node", msg)
 
     @mock.patch("setup_ui_env.shutil.which", return_value="/usr/bin/node")
-    @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=0, stdout="v22.0.0"))
+    @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=0, stdout="v24.0.0"))
     def test_node_ok(self, _sh, _w):
         ok, msg = s.node_ok()
         self.assertTrue(ok)
-        self.assertIn("v22.0.0", msg)
+        self.assertIn("v24.0.0", msg)
+
+    @mock.patch("setup_ui_env.shutil.which", return_value="/usr/bin/node")
+    @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=0, stdout="v22.0.0"))
+    def test_node_too_old(self, _sh, _w):
+        ok, msg = s.node_ok()
+        self.assertFalse(ok)
+        self.assertIn("不兼容", msg)
 
     # ---- npx_ok ----
 
@@ -49,18 +56,18 @@ class SetupUiEnvTestCase(unittest.TestCase):
         self.assertIn("npx", msg)
 
     @mock.patch("setup_ui_env.shutil.which", return_value="/usr/bin/npx")
-    @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=0, stdout="0.0.99"))
+    @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=0, stdout="11.16.0"))
     def test_npx_ok(self, _sh, _w):
         ok, msg = s.npx_ok()
         self.assertTrue(ok)
 
     @mock.patch("setup_ui_env.shutil.which", return_value="/usr/bin/npx")
     @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=1, stdout=""))
-    def test_npx_pkg_not_cached(self, _sh, _w):
-        """npx 存在但包未缓存 → 标记缺失（首次运行需下载）。"""
+    def test_npx_execution_failure(self, _sh, _w):
+        """npx 路径存在但无法执行时必须标记失败。"""
         ok, msg = s.npx_ok()
         self.assertFalse(ok)
-        self.assertIn("未缓存", msg)
+        self.assertIn("无法执行", msg)
 
     # ---- browser_ok ----
 
@@ -114,11 +121,18 @@ class SetupUiEnvTestCase(unittest.TestCase):
 
     # ---- tui_ok ----
 
+    @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=0, stdout="agent-tty 0.5.0"))
     @mock.patch("setup_ui_env.shutil.which", return_value="/usr/bin/agent-tty")
-    def test_tui_ok_with_agent_tty(self, _w):
+    def test_tui_ok_with_agent_tty(self, _w, _sh):
         ok, msg = s.tui_ok()
         self.assertTrue(ok)
         self.assertIn("agent-tty", msg)
+
+    @mock.patch("setup_ui_env.sh", return_value=mock.Mock(returncode=1, stdout="", stderr="boom"))
+    @mock.patch("setup_ui_env.shutil.which", side_effect=lambda name: f"/usr/bin/{name}")
+    @mock.patch("setup_ui_env.node_ok", return_value=(True, "ok"))
+    def test_install_stops_on_mcp_failure(self, _node, _which, _sh):
+        self.assertNotEqual(s.install(), 0)
 
     @mock.patch("setup_ui_env.shutil.which", return_value=None)
     def test_tui_ok_missing_both(self, _w):

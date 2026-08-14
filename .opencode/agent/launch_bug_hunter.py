@@ -6,8 +6,9 @@
 
 用法：
   python3 launch_bug_hunter.py pre      # 启动前：check(失败先 repair) → snapshot
-                                        #         → 打印启动指引（exit 非 0 = 基线不可用）
-  python3 launch_bug_hunter.py post     # 结束后：diff → 异常则 restore 并提示复核
+                                         #         → 打印启动指引（exit 非 0 = 基线不可用）
+  python3 launch_bug_hunter.py post     # 结束后：diff + 准备记录 + 模块结构检查
+  python3 launch_bug_hunter.py post --final  # 结束/死亡：额外要求 100% 模块覆盖
   python3 launch_bug_hunter.py status   # 当前状态一览 + 一致性 check
 
 调用方流程（真实落地闭环）：
@@ -24,16 +25,67 @@ from pathlib import Path
 
 AGENT_DIR = Path(__file__).resolve().parent
 VERIFY = AGENT_DIR / "verify_life.py"
+MODULE_COVERAGE = AGENT_DIR / "module_coverage.py"
+TOOLS_KB = AGENT_DIR / "tools_kb.py"
+PREP_VALIDATE = AGENT_DIR / "prep_validate.py"
+
+
+def _project_root() -> Path:
+    """兼容正式 .opencode/agent 布局与隔离测试目录。"""
+    if AGENT_DIR.parent.name == ".opencode":
+        return AGENT_DIR.parent.parent
+    return AGENT_DIR
 
 
 def _run(*args: str) -> int:
     return subprocess.call([sys.executable, str(VERIFY), *args])
 
 
+def _run_module_coverage(final: bool = False) -> int:
+    """外部校验模块清单；覆盖门禁不能只由 agent 自报。"""
+    if not MODULE_COVERAGE.is_file():
+        print("[launch_bug_hunter] ✗ 缺少 module_coverage.py，拒绝通过覆盖门禁")
+        return 1
+    command = "final-check" if final else "check"
+    return subprocess.call(
+        [sys.executable, str(MODULE_COVERAGE), command,
+         "--root", str(_project_root()),
+         "--manifest", str(AGENT_DIR / "module-coverage.md")],
+        cwd=str(_project_root()),
+    )
+
+
+def _run_tools_kb() -> int:
+    """启动前拒绝使用过期/无日期工具知识。"""
+    if not TOOLS_KB.is_file():
+        print("[launch_bug_hunter] ✗ 缺少 tools_kb.py，无法验证工具知识有效期")
+        return 1
+    return subprocess.call(
+        [sys.executable, str(TOOLS_KB), "check"],
+        cwd=str(_project_root()),
+    )
+
+
+def _run_prep_validate() -> int:
+    """结束前确认开工准备有可追溯记录。"""
+    if not PREP_VALIDATE.is_file():
+        print("[launch_bug_hunter] ✗ 缺少 prep_validate.py，拒绝通过准备门禁")
+        return 1
+    return subprocess.call(
+        [sys.executable, str(PREP_VALIDATE),
+         "--root", str(_project_root()),
+         "--record", str(AGENT_DIR / "prep-record.md")],
+        cwd=str(_project_root()),
+    )
+
+
 def pre() -> int:
     print("=" * 56)
     print("bug-hunter 启动前协议：校验基线 → 建立快照 → 输出外部基线")
     print("=" * 56)
+    if _run_tools_kb() != 0:
+        print("✗ tools-kb 存在过期/缺日期条目，先搜索更新后再启动")
+        return 1
     if _run("check") != 0:
         print("→ 基线不一致，先 repair 恢复…")
         if _run("repair") != 0:
@@ -63,7 +115,7 @@ def pre() -> int:
     return 0
 
 
-def post() -> int:
+def post(final: bool = False) -> int:
     print("=" * 56)
     print("bug-hunter 结束协议：核对 life 变化 → 异常回滚")
     print("=" * 56)
@@ -73,8 +125,19 @@ def post() -> int:
         print("✗ 已回滚到启动前基线。")
         print("  请复核 bug-hunter 的报告：findings 是否真实存在、修复是否真转绿。")
         return 1
+    if _run_module_coverage(final=final) != 0:
+        print("→ 模块覆盖门禁失败，回滚到基线快照…")
+        _run("restore")
+        print("✗ 模块清单无效或未达到覆盖要求。")
+        return 1
+    if _run_prep_validate() != 0:
+        print("→ 开工准备记录不完整，回滚到基线快照…")
+        _run("restore")
+        print("✗ 缺项目识别、工具调研/选择/就绪或协作记录。")
+        return 1
     _print_new_findings()
-    print("✓ 本轮结算正常，life 变化在合法范围内。")
+    suffix = "，最终 100% 覆盖通过" if final else "，模块清单结构有效"
+    print(f"✓ 本轮结算正常，life 变化在合法范围内{suffix}。")
     return 0
 
 
@@ -124,7 +187,9 @@ def status() -> int:
 
 def main(argv: list[str]) -> int:
     cmd = argv[1] if len(argv) > 1 else "status"
-    fn = {"pre": pre, "post": post, "status": status}.get(cmd)
+    if cmd == "post":
+        return post(final="--final" in argv[2:])
+    fn = {"pre": pre, "status": status}.get(cmd)
     if fn is None:
         print(f"[launch_bug_hunter] 未知命令: {cmd}（可选 pre/post/status）")
         return 2

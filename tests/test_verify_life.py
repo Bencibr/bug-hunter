@@ -69,6 +69,20 @@ class VerifyLifeTestCase(unittest.TestCase):
 
     def test_check_ok_on_reset(self):
         self.assertEqual(v.cmd_check(), 0)
+        self.assertIsNone(self.load().get("mode"))
+
+    def test_set_mode_persists_for_resume(self):
+        self.assertEqual(v.cmd_set_mode(["--mode", "auto"]), 0)
+        self.assertEqual(self.load()["mode"], "auto")
+        self.assertEqual(v.cmd_check(), 0)
+
+    def test_set_mode_accepts_log_only(self):
+        self.assertEqual(v.cmd_set_mode(["--mode", "log-only"]), 0)
+        self.assertEqual(self.load()["mode"], "log-only")
+
+    def test_set_mode_rejects_invalid(self):
+        self.assertNotEqual(v.cmd_set_mode(["--mode", "maybe"]), 0)
+        self.assertIsNone(self.load().get("mode"))
 
     def test_check_detects_life_tamper(self):
         d = self.load()
@@ -271,6 +285,10 @@ class VerifyLifeTestCase(unittest.TestCase):
     def test_evidence_fake_file_rejected(self):
         bad = v.evidence_bad_lines([self.evidence_fake()])
         self.assertEqual(len(bad), 1)
+
+    def test_evidence_out_of_range_line_rejected(self):
+        line = "[MEDIUM] 真实文件但行号不存在。.opencode/agent/bug-hunter.md:999999。复现：x。观察：y。"
+        self.assertEqual(len(v.evidence_bad_lines([line])), 1)
 
     def test_evidence_testname_repro_passes(self):
         line = "[MEDIUM] test_foo_bar 复现：x 观察：y 修复：z"

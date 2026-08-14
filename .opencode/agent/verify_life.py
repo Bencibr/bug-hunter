@@ -27,6 +27,7 @@
   diff      对比当前状态与快照/外部基线，检出「自洽撒谎」与超范围涨命
   restore   从快照恢复当前状态（diff 检出异常后的回滚）
   selfhash  输出本脚本当前 SHA256（维护用：改完脚本后更新 SELF_HASH）
+  set-mode  持久化用户确认的修复模式（auto/log-only）
 
 调用规范（防「自洽撒谎」盲区，v0.0.1 加固）：
   1. 启动 bug-hunter 前：`launch_bug_hunter.py pre` —— 做 check + snapshot，
@@ -70,11 +71,12 @@ AUDIT_LOG = Path(__file__).resolve().parent / "repair-audit.log"
 # 自校验：脚本被 bash/sed/cp 篡改后，所有命令拒绝执行。
 # 维护方法：改完本脚本后运行 `python3 verify_life.py selfhash`，
 # 把输出粘贴到下面 SELF_HASH = "..." 即可（哈希会随每次编辑变化）。
-SELF_HASH = "faeaadade3c4a3552f05e149b44c46c33efdf29058236d2d22a775b266fc3b1f"
+SELF_HASH = "d8b1fc183bd98acbfad3bf8f9aac665135ac725c9a5968a748fab8d4854031a6"
 
 # 单轮每项真实发现的加分上限（与 bug-hunter.md「单轮加分上限」一致）。
 # 防「凑数无限续命」：每轮 life 净增上限 = -1(轮费) + MAX_PER_ROUND。
 MAX_PER_ROUND = 5
+VALID_MODES = {"auto", "log-only"}
 
 
 def self_check() -> None:
@@ -175,12 +177,22 @@ _REPRO_MARK_RE = re.compile(r"(复现|观察|预期|Repro|Observed|Expected|exit
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-def _file_real(path: str) -> bool:
-    """文件真实存在于仓库（相对仓库根解析，也接受绝对路径）。"""
+def _file_real(path: str, line: int | None = None) -> bool:
+    """文件和（如提供）行号真实存在于仓库。"""
     p = Path(path)
     if not p.is_absolute():
         p = _REPO_ROOT / path
-    return p.is_file()
+    if not p.is_file():
+        return False
+    if line is None:
+        return True
+    try:
+        # 行号证据至少不能超出文件实际范围；语义正确性仍需调用方复核。
+        with p.open("r", encoding="utf-8", errors="replace") as fh:
+            line_count = sum(1 for _ in fh)
+        return 1 <= line <= line_count
+    except OSError:
+        return False
 
 
 def _audit(kind: str, detail: str) -> None:
@@ -206,7 +218,7 @@ def evidence_bad_lines(findings: list[str]) -> list[str]:
     for f in findings:
         has_file_ref = False
         for m in _EVIDENCE_FILE_RE.finditer(f):
-            if _file_real(m.group("path")):
+            if _file_real(m.group("path"), int(m.group("line"))):
                 has_file_ref = True
                 break
         has_test_repro = bool(_TEST_NAME_RE.search(f) and _REPRO_MARK_RE.search(f))
@@ -268,6 +280,11 @@ def check_errors(d: dict) -> list[str]:
         )
     if d.get("alive") != (d.get("life") > 0):
         errors.append(f"alive({d.get('alive')}) 与 life({d.get('life')}) 不一致")
+    mode = d.get("mode")
+    if mode is not None and mode not in VALID_MODES:
+        errors.append(
+            f"mode({mode!r}) 无效，必须是 auto/log-only 或 null"
+        )
     # found_total 必须等于各轮计命数（credited）之和——超额/重复发现计入
     # findings 但不计命，故不能用 sum(findings)。
     ft = sum(_credited(h) for h in hist)
@@ -376,10 +393,44 @@ def cmd_reset() -> int:
         "round": 1,
         "rounds_completed": 0,
         "alive": True,
+        "mode": None,
         "history": [],
     }
     save(d)
     print("[verify_life] 已重置为初始状态")
+    return 0
+
+
+def cmd_set_mode(argv: list[str]) -> int:
+    """持久化用户已确认的修复模式；模式不由 agent 自行猜测。"""
+    mode = None
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--mode" and i + 1 < len(argv):
+            mode = argv[i + 1]
+            i += 2
+        else:
+            print(f"[verify_life] set-mode 未知参数: {argv[i]}")
+            return 2
+    if mode not in VALID_MODES:
+        print(
+            f"[verify_life] mode({mode!r}) 无效，必须是 "
+            "auto 或 log-only"
+        )
+        return 1
+    d = load()
+    if not d.get("alive", True) or d.get("life", 0) <= 0:
+        print("[verify_life] 已死亡，不能设置会话模式——先经用户确认 reset")
+        return 1
+    d["mode"] = mode
+    _save_atomic(d)
+    errs = check_errors(d)
+    if errs:
+        print("[verify_life] 设置 mode 后校验失败:")
+        for e in errs:
+            print(f"  ✗ {e}")
+        return 1
+    print(f"[verify_life] 已保存用户确认模式: {mode}")
     return 0
 
 
@@ -412,6 +463,11 @@ def cmd_diff() -> int:
     snap_rounds = snap.get("rounds_completed", 0)
     cur_rounds = cur.get("rounds_completed", 0)
     run = cur_rounds - snap_rounds
+    # 已确认的会话模式不可在运行中静默切换；旧基线没有 mode 时允许一次迁移初始化。
+    snap_mode = snap.get("mode")
+    cur_mode = cur.get("mode")
+    if snap_mode is not None and cur_mode != snap_mode:
+        issues.append(f"会话 mode 被改写: {snap_mode!r} -> {cur_mode!r}")
     if run < 0:
         issues.append(f"rounds_completed 回退: {snap_rounds} -> {cur_rounds}")
     snap_hist = snap.get("history") or []
@@ -652,6 +708,8 @@ def main(argv: list[str]) -> int:
     cmd = argv[1] if len(argv) > 1 else "check"
     if cmd == "settle":
         return cmd_settle(argv[2:])
+    if cmd == "set-mode":
+        return cmd_set_mode(argv[2:])
     fn = {
         "check": cmd_check,
         "repair": cmd_repair,
@@ -663,7 +721,7 @@ def main(argv: list[str]) -> int:
     if fn is None:
         print(
             "[verify_life] 未知命令: "
-            f"{cmd}（可选 check/repair/reset/snapshot/diff/restore/settle/selfhash）"
+            f"{cmd}（可选 check/repair/reset/set-mode/snapshot/diff/restore/settle/selfhash）"
         )
         return 2
     return fn()

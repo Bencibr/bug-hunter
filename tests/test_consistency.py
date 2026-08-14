@@ -19,11 +19,12 @@ REPO = Path(__file__).resolve().parent.parent
 AGENT = REPO / ".opencode" / "agent"
 BUG_HUNTER = AGENT / "bug-hunter.md"
 README = REPO / "README.md"
+PYPROJECT = REPO / "pyproject.toml"
 
 
 class ConsistencyTestCase(unittest.TestCase):
     def test_version_consistent(self):
-        """bug-hunter.md frontmatter version == README Version。"""
+        """bug-hunter.md、README、pyproject 的版本必须一致。"""
         bh = BUG_HUNTER.read_text(encoding="utf-8")
         rd = README.read_text(encoding="utf-8")
         m_bh = re.search(r"^version:\s*([\d.]+)", bh, re.M)
@@ -34,6 +35,11 @@ class ConsistencyTestCase(unittest.TestCase):
             m_bh.group(1), m_rd.group(1),
             f"版本漂移: bug-hunter.md={m_bh.group(1)} README={m_rd.group(1)}",
         )
+        pyproject = PYPROJECT.read_text(encoding="utf-8")
+        project = pyproject.split("[project]", 1)[-1].split("[", 1)[0]
+        m_project = re.search(r'^version\s*=\s*"([\d.]+)"', project, re.M)
+        self.assertIsNotNone(m_project, "pyproject.toml 无 project.version")
+        self.assertEqual(m_bh.group(1), m_project.group(1))
 
     def test_referenced_agent_files_exist(self):
         """bug-hunter.md 引用的 .opencode/agent/* 路径必须存在。"""
@@ -47,11 +53,14 @@ class ConsistencyTestCase(unittest.TestCase):
         bh = BUG_HUNTER.read_text(encoding="utf-8")
         self.assertIn('"*verify_life.py reset*": ask', bh,
                       "reset 权限应改为 ask（deny 会阻断自动化重置）")
+        self.assertIn('"*verify_life.py set-mode*": ask', bh,
+                      "set-mode 权限应为 ask（模式切换必须有用户授权）")
 
     def test_core_scripts_have_tests(self):
         """每个核心脚本都应有对应测试文件（广度保障）。"""
         scripts = ["verify_life", "launch_bug_hunter", "setup_ui_env",
-                   "minimize_repro", "fuzz_input", "corpus_fetch"]
+                   "minimize_repro", "fuzz_input", "corpus_fetch",
+                   "module_coverage", "tools_kb", "prep_validate"]
         tests = [p.name for p in (REPO / "tests").glob("test_*.py")]
         for s in scripts:
             self.assertTrue(
@@ -75,7 +84,7 @@ class ConsistencyTestCase(unittest.TestCase):
     def test_required_md_templates_exist(self):
         """agent 依赖的清单文件必须存在（含工具知识库）。"""
         for name in ("mistake-book.md", "bug-log.md", "module-coverage.md",
-                     "tools-kb.md"):
+                     "tools-kb.md", "prep-record.md"):
             self.assertTrue((AGENT / name).is_file(), f"缺少 {name}")
 
     def test_research_before_output_is_hard_gate(self):
@@ -91,6 +100,33 @@ class ConsistencyTestCase(unittest.TestCase):
                       "调研必须含 30 天有效期（工具知识会过期）")
         self.assertIn("过期知识复用", bh,
                       "反模式必须定义「过期知识复用」逃逸（>30 天仍直接用）")
+
+    def test_external_gates_are_wired(self):
+        """覆盖/准备/知识库门禁必须接入 launch post/pre，而不是只写文档。"""
+        launch = (AGENT / "launch_bug_hunter.py").read_text(encoding="utf-8")
+        self.assertIn("_run_module_coverage", launch)
+        self.assertIn("_run_prep_validate", launch)
+        self.assertIn("_run_tools_kb", launch)
+        self.assertIn('"--final"', launch)
+
+    def test_external_tool_versions_are_pinned(self):
+        """MCP/安装脚本不可使用漂移的 latest 或无版本安装。"""
+        config = (REPO / "opencode.json").read_text(encoding="utf-8")
+        setup = (AGENT / "setup_ui_env.py").read_text(encoding="utf-8")
+        self.assertNotIn("@latest", config)
+        self.assertIn("@playwright/mcp@0.0.79", config)
+        self.assertIn('AGENT_TTY_VERSION = "0.5.0"', setup)
+        self.assertIn('PEXPECT_VERSION = "4.9.0"', setup)
+
+    def test_runtime_and_ci_metadata_exist(self):
+        """运行时约束和双版本 CI 必须常驻，防止只在文档里声明。"""
+        self.assertEqual((REPO / ".python-version").read_text().strip(), "3.14.6")
+        self.assertEqual((REPO / ".nvmrc").read_text().strip(), "24")
+        workflow = (REPO / ".github" / "workflows" / "ci.yml")
+        self.assertTrue(workflow.is_file())
+        text = workflow.read_text(encoding="utf-8")
+        self.assertIn('"3.11"', text)
+        self.assertIn('"3.14"', text)
 
 
 if __name__ == "__main__":

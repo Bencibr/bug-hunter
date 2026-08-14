@@ -28,15 +28,15 @@
 ### Web/API（前后端分离）
 | 工具 | 用途 | 来源 | 验证日期 |
 |------|------|------|---------|
-| postmcp | API 契约轰炸（REST/GraphQL/WS/断言） | 已装 v1.1.0 | 2026-08-14 |
-| playwright | UI 视觉/交互（多断点截图/几何断言） | 已装 | 2026-08-14 |
+| postmcp | API 契约轰炸（REST/GraphQL/WS/断言） | npm @bencibro/postmcp 1.0.3（CLI banner 1.1.0） | 2026-08-14 |
+| playwright | UI 视觉/交互（多断点截图/几何断言） | npm @playwright/mcp 0.0.79 | 2026-08-14 |
 | fuzz_input.py | 变异模糊矩阵 | 自研 | 2026-08-14 |
 | minimize_repro.py | 异常输入最小化 | 自研 | 2026-08-14 |
 
 ### TUI/终端交互
 | 工具 | 用途 | 来源 | 验证日期 |
 |------|------|------|---------|
-| agent-tty | terminal 版 Playwright（截图/录像） | coder/agent-tty | 2026-08-14 |
+| agent-tty | terminal 版 Playwright（截图/录像） | npm agent-tty 0.5.0（Node >=24,<27） | 2026-08-14 |
 | pexpect | Python PTY 交互/断言 | pexpect 4.9.0 | 2026-08-14 |
 | expectrl | Rust PTY 交互 | zhiburt/expectrl | 2026-08-14 |
 
@@ -96,11 +96,11 @@
 | conduct | Tauri 跨平台 driver | matthunz/conduct (52★) | 2026-08-14 |
 
 ### Python / Go / JS
-| 语言 | 测试 | 覆盖率 | 静态分析 |
-|------|------|--------|---------|
-| Python | pytest | coverage | ruff/mypy/bandit |
-| Go | go test | go test -cover | go vet/staticcheck |
-| JS/TS | vitest/jest | c8 | eslint/tsc |
+| 语言 | 测试 | 覆盖率 | 静态分析 | 验证日期 |
+|------|------|--------|---------|---------|
+| Python | pytest | coverage | ruff/mypy/bandit | 2026-08-14 |
+| Go | go test | go test -cover | go vet/staticcheck | 2026-08-14 |
+| JS/TS | vitest/jest | c8 | eslint/tsc | 2026-08-14 |
 
 ---
 
@@ -122,4 +122,3 @@
   搜，种子贴合被测材质）+ `--repo serde-rs/json`（指定仓库提取）——遇解析器/
   格式类目标时用项目类型 query 拉同类项目种子，命中率高于纯语言种子
 - 本库所有条目验证日期均为 2026-08-14，**2026-09-13 后全部过期**需重新验证
-

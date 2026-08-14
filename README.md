@@ -1,6 +1,6 @@
 # Bug-Hunter Agent
 
-> **Version 0.0.7** · [Git tag: v0.0.7](https://github.com/Bencibr/bug-hunter)
+> **Version 0.0.8** · [Repository](https://github.com/Bencibr/bug-hunter)
 
 永无止境地挖掘错误的对抗性审计 Agent。白盒源码审计 + 黑盒成品测试
 （CLI / PTY / 数据接口 / **UI 视觉交互面** / **API 服务接口面**），多轮循环
@@ -49,9 +49,6 @@
 - **三思而行 · 从不打无准备的仗 · 知己知彼百战不殆（哲学）**：动手前先想
   清楚打什么/怎么打/打到什么程度；备足弹药再开战（了解目标+备好工具+攒好
   语料）；知己知彼——先侦察后火力，对目标一无所知就开工 = 蒙眼开枪。
-- **三思而行 · 从不打无准备的仗 · 知己知彼百战不殆（哲学）**：动手前先想
-  清楚打什么/怎么打/打到什么程度；备足弹药再开战（了解目标+备好工具+攒好
-  语料）；知己知彼——先侦察后火力，对目标一无所知就开工 = 蒙眼开枪。
 - **因地制宜 · 因材施教**：按目标形态选策略（白盒/黑盒/UI/PTY/API）、按代码材质
   选手法（解析器→模糊、状态机→序列、并发→竞态、安全→越权、UI→截图断言），
   按环境/寿命调投入——不套模板，打七寸。
@@ -75,23 +72,27 @@
 - **TUI 挖 bug**：通过 **agent-tty**（terminal 版 Playwright）/ **pexpect** 驱动
   TUI/REPL/向导——按键序列轰炸、状态机违例、退出路径，截图/录像可复核。
   有成熟工具优先用，不自研轮子。
-- **测试广度保障**：71 例单元测试覆盖校验器/启动协议/环境自检（含 TUI 工具）/
-  最小化/模糊/种子扩充（含按项目类型定制搜索），外加一致性测试防文档漂移
-  （版本/引用/权限/覆盖）——改动不怕破坏。
+ - **测试广度保障**：107 例单元测试覆盖校验器/启动协议/环境自检（含 TUI 工具）/
+   模块覆盖门禁/准备记录/知识库有效期/最小化/模糊/种子扩充（含按项目类型定制
+   搜索），外加一致性测试防文档漂移（版本/引用/权限/覆盖）——改动不怕破坏。
 
 ### 文件结构
 
 | 文件 | 作用 |
 |------|------|
 | `.opencode/agent/bug-hunter.md` | Agent 定义（核心提示词 + 生命周期规则 + 宪法） |
-| `.opencode/agent/verify_life.py` | 寿命校验器（check/repair/settle/reset/snapshot/diff/restore/selfhash，含自哈希防篡改） |
-| `.opencode/agent/launch_bug_hunter.py` | 启动协议（pre 输出外部基线 / post 核对 / status） |
-| `.opencode/agent/lockdown.sh` | OS 层加固（把校验器/基线设为只读） |
+| `.opencode/agent/verify_life.py` | 寿命校验器（check/repair/settle/set-mode/reset/snapshot/diff/restore/selfhash，含自哈希防篡改） |
+| `.opencode/agent/launch_bug_hunter.py` | 启动协议（pre 外部基线 / post 覆盖与准备门禁 / status） |
+| `.opencode/agent/lockdown.sh` | OS 层加固（把校验器/覆盖门禁/准备门禁/基线设为只读） |
 | `.opencode/agent/setup_ui_env.py` | UI/TUI 环境自检/自动补装（node/playwright/浏览器/agent-tty/pexpect） |
 | `.opencode/agent/mistake-book.md` | 错题集（反思归类复用） |
 | `.opencode/agent/bug-log.md` | bug 记录清单（只记录模式的产物 + 全模式去重依据） |
 | `.opencode/agent/module-coverage.md` | 模块覆盖清单（化整为零：拆分模块 + 覆盖追踪） |
+| `.opencode/agent/module_coverage.py` | 模块清单外部校验器（结构/路径/证据/最终 100% 门禁） |
 | `.opencode/agent/tools-kb.md` | 工具知识库（本地优先：搜索验证过的工具沉淀，同类型项目直接复用） |
+| `.opencode/agent/tools_kb.py` | 工具知识库有效期校验器（30 天过期门禁） |
+| `.opencode/agent/prep-record.md` | 开工准备记录模板（项目/测试类型/工具来源/协作） |
+| `.opencode/agent/prep_validate.py` | 开工准备记录校验器 |
 | `.opencode/agent/minimize_repro.py` | 失败输入最小化工具（ddmin，根因集中 + 举证加速） |
 | `.opencode/agent/fuzz_input.py` | 变异模糊矩阵工具（并发批量轰输入，筛异常样本） |
 | `.opencode/agent/corpus_fetch.py` | 种子扩充工具（并发搜 GitHub，支持 `--query` 按项目类型/`--repo` 指定仓库） |
@@ -100,15 +101,21 @@
 | `.opencode/agent/repair-audit.log` | 修复审计日志（每次 repair 留痕，不入库） |
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
 | `test-report.md` | 死亡退出前的汇总测试报告（运行时生成） |
-| `tests/test_verify_life.py` | 校验器单元测试（23 例：check/settle/diff/repair/evidence/selfhash） |
-| `tests/test_launch_bug_hunter.py` | 启动协议测试（5 例：pre/post/status） |
-| `tests/test_setup_ui_env.py` | 环境自检测试（12 例：node/npx/浏览器/TUI 工具检测） |
+| `tests/test_verify_life.py` | 校验器单元测试（27 例：check/settle/mode/diff/repair/evidence/selfhash） |
+| `tests/test_launch_bug_hunter.py` | 启动协议测试（7 例：pre/post/status/覆盖与准备门禁） |
+| `tests/test_setup_ui_env.py` | 环境自检测试（14 例：版本约束/浏览器/TUI/安装失败） |
 | `tests/test_minimize_repro.py` | 最小化工具测试（3 例） |
 | `tests/test_fuzz_input.py` | 模糊工具测试（9 例：变异策略/崩溃筛选/端到端） |
 | `tests/test_corpus_fetch.py` | 种子扩充测试（12 例：搜索/query 定制/repo 指定/提取/去重/端到端） |
-| `tests/test_consistency.py` | 一致性测试（6 例：版本/引用/权限/覆盖防漂移） |
+| `tests/test_module_coverage.py` | 覆盖门禁测试（12 例：仓库边界/真实证据/最终 100%） |
+| `tests/test_tools_kb.py` | 知识库有效期测试（6 例：30 天/过期/未来/缺日期） |
+| `tests/test_prep_validate.py` | 开工准备记录测试（7 例：非空章节/来源/日期/结论） |
+| `tests/test_consistency.py` | 一致性测试（10 例：版本/权限/工具固定/CI/防漂移） |
 | `tests/run_tests.sh` | 一键测试入口 |
 | `opencode.json` | MCP 配置（Playwright UI + postmcp API） |
+| `pyproject.toml` | Python/Node/外部工具的版本基线与项目元数据 |
+| `.python-version` / `.nvmrc` | 本地开发运行时版本基线 |
+| `.github/workflows/ci.yml` | Python 3.11/3.14 双版本持续集成 |
 
 > 提示：`bug-hunter-life.json`、`.snapshot`、`repair-audit.log` 已被 `.gitignore`
 > 排除。每个使用者 clone 后从初始态（life=1）各自开始，历史发现不共享。
@@ -117,10 +124,12 @@
 
 ## 前置要求
 
-- **Python 3**：运行 `verify_life.py` / `launch_bug_hunter.py`
-- **Node.js + npx**：运行 Playwright MCP（UI 挖 bug 才需要）
-- **postmcp**（API 挖 bug 需要，未装会自动安装）：`npm install -g @bencibro/postmcp`
-- **agent-tty + pexpect**（TUI 挖 bug 需要）：`npm install -g agent-tty && pip install pexpect`
+- **Python ≥3.11**：运行校验器/启动器；`.python-version` 固定开发基线为 3.14.6
+- **Node.js ≥24 且 <27 + npx**：运行固定版本的 Playwright MCP/agent-tty；
+  `.nvmrc` 固定主版本 24
+- **postmcp 1.0.3**（API 挖 bug 需要）：`npm install -g @bencibro/postmcp@1.0.3`
+- **agent-tty 0.5.0 + pexpect 4.9.0**（TUI 挖 bug 需要）：
+  `npm install -g agent-tty@0.5.0 && pip install pexpect==4.9.0`
   （terminal 版 Playwright，驱动 nvim/htop 等交互应用并截图/录像）
 - **数据库工具**（黑盒造数据/观测/验证持久化，按项目配）：`redis-cli`/`psql`/
   `mysql` 或对应数据库 MCP
@@ -143,19 +152,22 @@
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-**测试覆盖（71 例）**：
-- `test_verify_life.py`（23）— check / settle 结算护栏（credited、证据校验、
+**测试覆盖（107 例）**：
+- `test_verify_life.py`（27）— check / settle 结算护栏（credited、mode、证据校验、
   轮号、历史去重）/ snapshot/diff/restore / repair 幽灵轮费回滚 / 篡改自校验
-- `test_launch_bug_hunter.py`（5）— pre 基线+外部基线输出 / post diff 异常回滚
-  / status
-- `test_setup_ui_env.py`（12）— node/npx/浏览器检测、TUI 工具检测、check 汇总、缺失上报
+- `test_launch_bug_hunter.py`（7）— pre 基线+外部基线输出 / post diff 异常回滚 /
+  status / 最终覆盖门禁 / 准备记录门禁
+- `test_setup_ui_env.py`（14）— node/npx/浏览器检测、版本约束、安装失败、TUI 工具检测
 - `test_minimize_repro.py`（3）— ddmin 最小化（去噪保触发、多 token 保留）
 - `test_fuzz_input.py`（9）— 变异策略（truncate/flip/garbage/numeric/string/
   duplicate）、崩溃/超时筛选、端到端 summary+异常落盘
 - `test_corpus_fetch.py`（12）— 仓库搜索解析、**--query 定制搜索（URL 编码）**、
   **--repo 指定仓库（跳过搜索）**、文件过滤、种子提取/去重、dry-run 与端到端
-- `test_consistency.py`（6）— **防文档漂移**：版本一致、提示词引用文件存在、
-  reset 权限为 ask、核心脚本都有测试、README 文件表一致
+- `test_module_coverage.py`（12）— 覆盖门禁：仓库边界、路径/状态/责任、真实证据、最终 100%
+- `test_tools_kb.py`（6）— 知识库有效期：30 天/过期/未来/缺日期
+- `test_prep_validate.py`（7）— 准备记录：非空章节/来源/日期/明确开工结论
+- `test_consistency.py`（10）— **防文档/机制漂移**：版本/引用/权限/核心脚本测试/
+  外部门禁接线/工具版本固定/CI 元数据/README 文件表一致
 
 测试在独立临时目录运行，**不污染真实 `bug-hunter-life.json`**。
 
@@ -204,12 +216,17 @@ python3 .opencode/agent/launch_bug_hunter.py pre
 # 粘贴 pre 输出的 export 行（若换了终端必须重新设置）
 export BH_PRE_BASELINE='{"life": 1, ...}'
 python3 .opencode/agent/launch_bug_hunter.py post
+# 最终收工/死亡：额外执行 100% 模块覆盖门禁
+python3 .opencode/agent/launch_bug_hunter.py post --final
 ```
+
+`post` 会校验 `prep-record.md`、tools-kb 有效期和模块清单结构；`post --final`
+还会自动发现源码模块并强制覆盖率达到 Y/Y，门禁失败会回滚本轮。
 
 > OpenCode 原生支持本仓库 frontmatter 的 `mode: all`、`permission`（编辑/命令/
 > MCP 授权）字段，无需改动。
 
-**安全机制**（v0.0.2 审计修复，v0.0.7 增补）：
+**安全机制**（v0.0.2 审计修复，v0.0.8 增补）：
 - 校验器内嵌自哈希校验，被 bash 篡改后拒绝执行
 - settle 要求每条计命 findings 含真实文件引用或测试名（堵凭空编造刷命）
 - `post` 用外部基线 diff，agent 同时改 life+snapshot 也会被检出
@@ -346,14 +363,14 @@ agent 会按标准流程执行：
 6. 覆盖 loading/error/empty/disabled 状态 + 主题对比度
 
 > OpenCode 用户无需额外配置（`opencode.json` 已内置 Playwright MCP）。
-> 其他工具需自行配置对应 MCP（`npx @playwright/mcp@latest`）。
+> 其他工具需自行配置对应 MCP（`npx --yes @playwright/mcp@0.0.79`）。
 
 ---
 
 ## API 挖 bug 快速上手
 
 bug-hunter 用 **postmcp** 挖 API/接口 bug。前提：目标接口可访问（本地服务
-或线上），且已装 postmcp（`npm install -g @bencibro/postmcp`）。
+或线上），且已装 postmcp（`npm install -g @bencibro/postmcp@1.0.3`）。
 
 ```
 向 bug-hunter 发起任务，例如：
@@ -389,9 +406,20 @@ agent 会按标准流程执行：
 > 日期回写本库。知识持续积累且可更新，既不用每次重搜，也不靠 agent 记忆
 > （本库是带来源和有效期的本地证据，不是记忆）。
 
+**Q: 如何真正保证全模块覆盖，而不是只在报告里写 100%？**
+> `module_coverage.py` 会校验清单结构、模块路径、主工具、证据/测试记录，并在
+> `post --final` 时自动发现常见源码模块，拒绝清单漏列或未覆盖状态。结束协议还
+> 会校验 `prep-record.md` 和 tools-kb 有效期；覆盖门禁/准备门禁失败会回滚本轮。
+
+```bash
+python3 .opencode/agent/module_coverage.py check
+python3 .opencode/agent/module_coverage.py final-check
+python3 .opencode/agent/launch_bug_hunter.py post --final
+```
+
 **Q: postmcp 没装会怎样？**
 > agent 会自动检测：工具集缺 `postmcp_*` 时运行
-> `npm install -g @bencibro/postmcp` 主动安装，装完提示重启 opencode 会话
+> `npm install -g @bencibro/postmcp@1.0.3` 主动安装，装完提示重启 opencode 会话
 > （MCP 启动时加载）。`opencode.json` 已内置 postmcp 配置，clone 后即用。
 
 **Q: 为什么启动时要跑 `launch_bug_hunter.py pre`？**

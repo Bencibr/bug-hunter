@@ -5,8 +5,9 @@
 # 脚本（cp verify_life.py /tmp/x.py 修改后运行）或改写快照基线，从而绕过
 # 外部防线。opencode 的 permission 挡「诚实越界」，但挡不住「恶意 + 全权限」。
 #
-# 本脚本把校验器/启动器/快照设为「只读」，作为文件系统层防线：
-#   - verify_life.py / launch_bug_hunter.py → chmod 444（只读）
+# 本脚本把校验器/启动器/覆盖门禁/准备门禁/快照设为「只读」，作为文件系统层防线：
+#   - verify_life.py / launch_bug_hunter.py / module_coverage.py / tools_kb.py /
+#     prep_validate.py → chmod 444（只读）
 #   - bug-hunter-life.json.snapshot（基线）→ chmod 444（只读，防改写基线）
 #   - bug-hunter-life.json（agent 结算）→ 保持可写
 #
@@ -16,7 +17,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-for f in verify_life.py launch_bug_hunter.py; do
+for f in verify_life.py launch_bug_hunter.py module_coverage.py tools_kb.py prep_validate.py; do
     if [[ -f "$f" ]]; then
         chmod a-w "$f"
         echo "  ✓ $f → 只读"
@@ -28,4 +29,4 @@ if [[ -f bug-hunter-life.json.snapshot ]]; then
 fi
 echo
 echo "外部防线文件已锁定为只读；bug-hunter-life.json 保持可写（agent 结算用）。"
-echo "解锁（后续维护）：chmod u+w verify_life.py launch_bug_hunter.py"
+echo "解锁（后续维护）：chmod u+w verify_life.py launch_bug_hunter.py module_coverage.py tools_kb.py prep_validate.py"
