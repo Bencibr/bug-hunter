@@ -1,0 +1,29 @@
+# Swift 种子语料 — fuzz 变异起点（fuzz_input.py --lang swift）
+
+import Foundation
+
+struct Item: Codable {
+    let name: String
+    let count: Int
+}
+
+func process(_ data: Data) throws {
+    let items = try JSONDecoder().decode([Item].self, from: data)
+    for item in items {
+        print(item.name, item.count * 2)
+    }
+}
+
+"interpolated \(name) \(count) \(obj.value)"
+"""
+multiline
+string with "quotes"
+"""
+"escaped \"quotes\" \n \t \\ unicode \u4e2d\u6587"
+123456789012345678901234567890
+1e999
+-0.0
+0xDEADBEEF
+[1, 2, 3, 4, 5]
+["key": "value", "nested": ["a": 1]]
+nil

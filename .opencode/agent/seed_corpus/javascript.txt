@@ -1,0 +1,55 @@
+# JavaScript 种子语料 — fuzz 变异起点（fuzz_input.py --lang javascript)
+
+function process(data) {
+  try {
+    const items = JSON.parse(data);
+    items.forEach((item) => {
+      console.log(item.name, item.count * 2);
+    });
+  } catch (e) {
+    console.error("parse error:", e);
+  }
+}
+
+const s = `template literal ${name} ${count}`;
+const re = /regex with \d+ and "quotes"/gi;
+"escaped \"quotes\" \n \t \\ unicode \u4e2d\u6587";
+'single \'quoted\' string';
+123456789012345678901234567890;
+1e999;
+-0.0;
+0xDEADBEEF;
+1_000_000;
+[1, 2, 3, 4, 5];
+{"key": "value", "nested": {"a": 1}, "null": null, "bool": true};
+`nested ${`inner ${depth}`}`;
+(() => { return 42; })();
+collectCoverage: false,
+* @param {string} keyString - a string to build a key matrix (must be of matrixSize^2 length).
+test('slugifies a title', () => {
+const englishAlphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+describe('caesarCipher', () => {
+* @returns {string[]}
+Model.prepare(this, ['id']);
+* Example with a shift 3: {'a': 'd', 'b': 'e', 'c': 'f', ...}
+eslintConfigPrettier,
+module.exports = {
+const assert = require('node:assert/strict');
+shortTitle: 'My Collection',
+const config = {
+legacyAgreements: {
+const stablePackages = {
+'./rules/node',
+describe('hillCipher', () => {
+sbench_create_1to1,
+'./rules/best-practices',
+es5Paths,
+sbench_create_0to1,
+'for-direction': 'error',
+'Axios',
+__filename: false,
+it('should throw an exception when trying to decipher', () => {
+__dirname: false,
+test('parses sections, values, comments, and defaults', () => {
+console.log(chalk.blue('Info:'), `${message}`);
+AbortSignal: false,

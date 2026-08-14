@@ -1,0 +1,28 @@
+# Kotlin 种子语料 — fuzz 变异起点（fuzz_input.py --lang kotlin）
+
+package com.example
+
+data class Item(val name: String, val count: Int)
+
+fun main() {
+    val json = """
+        {"items": [{"name": "x", "count": 3}]}
+    """.trimIndent()
+    val mapper = ObjectMapper()
+    val items: List<Item> = mapper.readValue(json)
+    items.forEach { println(it.name) }
+    val nullable: String? = null
+    nullable?.let { println(it) } ?: println("null")
+}
+
+"interpolated $name ${count + 1} ${obj.value}"
+"""raw
+multiline
+string"""
+123456789012345678901234567890
+1e999
+-0.0f
+0xDEADBEEF
+listOf(1, 2, 3)
+mapOf("key" to 42)
+null

@@ -21,10 +21,10 @@
   `module-coverage.md`，并行任务分头轰炸各模块，用清单追踪覆盖状态
   （未覆盖→挖掘中→已覆盖）；死亡报告须确认 `已覆盖 X/Y 模块`，不留死角。
 - **测试分层（效率）+ 深度递进 + 覆盖引导（挖掘）**：冒烟（秒级快筛）→ 聚焦
-  （受影响模块）→ 全量（回归）分层跑，先快后深；静态读码→动态跑测→插桩→
-  反汇编逐层递进，根因链完整才算挖透；用 `coverage` 定位未覆盖路径定向挖；
-  异常样本用 `minimize_repro.py` 最小化，解析器类用 `fuzz_input.py` 变异矩阵
-  并发轰。
+   （受影响模块）→ 全量（回归）分层跑，先快后深；静态读码→动态跑测→插桩→
+   反汇编逐层递进，根因链完整才算挖透；用 `coverage` 定位未覆盖路径定向挖；
+   异常样本用 `minimize_repro.py` 最小化，解析器类用 `fuzz_input.py` 变异矩阵
+   并发轰（种子不足时 `corpus_fetch.py` 并发搜 GitHub 开源项目扩充语料库）。
 - **因地制宜 · 因材施教**：按目标形态选策略（白盒/黑盒/UI/PTY）、按代码材质
   选手法（解析器→模糊、状态机→序列、并发→竞态、安全→越权、UI→截图断言），
   按环境/寿命调投入——不套模板，打七寸。
@@ -42,8 +42,8 @@
   `test-report.md` 汇总测试报告。
 - **UI 挖 bug**：通过 Playwright 打开网页，多断点截图 + DOM 几何断言 +
   交互轰炸 + 状态覆盖，找布局崩塌、焦点陷阱、文案截断、对比度不足等视觉 bug。
-- **测试广度保障**：56 例单元测试覆盖校验器/启动协议/环境自检/最小化/模糊
-  工具，外加一致性测试防文档漂移（版本/引用/权限/覆盖）——改动不怕破坏。
+- **测试广度保障**：65 例单元测试覆盖校验器/启动协议/环境自检/最小化/模糊/
+  种子扩充，外加一致性测试防文档漂移（版本/引用/权限/覆盖）——改动不怕破坏。
 
 ### 文件结构
 
@@ -59,6 +59,8 @@
 | `.opencode/agent/module-coverage.md` | 模块覆盖清单（化整为零：拆分模块 + 覆盖追踪） |
 | `.opencode/agent/minimize_repro.py` | 失败输入最小化工具（ddmin，根因集中 + 举证加速） |
 | `.opencode/agent/fuzz_input.py` | 变异模糊矩阵工具（并发批量轰输入，筛异常样本） |
+| `.opencode/agent/corpus_fetch.py` | 种子扩充工具（并发搜 GitHub 开源项目，纳入 seed_corpus/） |
+| `.opencode/agent/seed_corpus/` | 多语言种子语料库（10 语言，可 fuzz 扩充） |
 | `.opencode/agent/bug-hunter-life.json` | 寿命状态（运行时生成，不入库） |
 | `.opencode/agent/repair-audit.log` | 修复审计日志（每次 repair 留痕，不入库） |
 | `.opencode/agent/findings_round*.txt` | 每轮发现记录 |
@@ -68,6 +70,7 @@
 | `tests/test_setup_ui_env.py` | 环境自检测试（10 例：node/npx/浏览器检测） |
 | `tests/test_minimize_repro.py` | 最小化工具测试（3 例） |
 | `tests/test_fuzz_input.py` | 模糊工具测试（9 例：变异策略/崩溃筛选/端到端） |
+| `tests/test_corpus_fetch.py` | 种子扩充测试（9 例：搜索/提取/去重/端到端） |
 | `tests/test_consistency.py` | 一致性测试（6 例：版本/引用/权限/覆盖防漂移） |
 | `tests/run_tests.sh` | 一键测试入口 |
 | `opencode.json` | Playwright MCP 配置（UI 挖 bug 用） |
@@ -95,7 +98,7 @@
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-**测试覆盖（56 例）**：
+**测试覆盖（65 例）**：
 - `test_verify_life.py`（23）— check / settle 结算护栏（credited、证据校验、
   轮号、历史去重）/ snapshot/diff/restore / repair 幽灵轮费回滚 / 篡改自校验
 - `test_launch_bug_hunter.py`（5）— pre 基线+外部基线输出 / post diff 异常回滚
@@ -104,6 +107,8 @@ python3 -m unittest discover -s tests -p "test_*.py"
 - `test_minimize_repro.py`（3）— ddmin 最小化（去噪保触发、多 token 保留）
 - `test_fuzz_input.py`（9）— 变异策略（truncate/flip/garbage/numeric/string/
   duplicate）、崩溃/超时筛选、端到端 summary+异常落盘
+- `test_corpus_fetch.py`（9）— 仓库搜索解析、文件过滤、种子提取/去重、
+  dry-run 与端到端（mock 网络）
 - `test_consistency.py`（6）— **防文档漂移**：版本一致、提示词引用文件存在、
   reset 权限为 ask、核心脚本都有测试、README 文件表一致
 

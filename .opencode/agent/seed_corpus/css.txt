@@ -1,0 +1,70 @@
+# CSS 种子语料 — fuzz 变异起点（fuzz_input.py --lang css)
+
+/* base styles */
+:root {
+  --primary: #336699;
+  --spacing: 8px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing);
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1200px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    flex-direction: row;
+  }
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+button:hover::after {
+  content: "↗";
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.a.b.c > .d ~ .e + .f {
+  background: linear-gradient(45deg, #f00 0%, #00f 100%);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.1);
+}
+
+@font-face {
+  font-family: 'Custom';
+  src: url('data:font/woff2;base64,AAAA');
+}
+
+input[type="text"]:focus-visible,
+select:not(:disabled):not(:checked) {
+  outline: 2px solid var(--primary);
+  border-radius: calc(var(--spacing) * 2);
+}
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+--color-paper: oklch(94% 0.022 80);
+font-family: "Lato";
+margin: 0;
+@charset "UTF-8";
+--bulma-control-radius: var(--bulma-radius);
+.outer {
+padding: 0;
+--color-paper: oklch(96% 0.010 75);
+--color-paper-2: oklch(94% 0.012 75);
+.vimeo-image:after,
+position: relative;
+box-sizing: border-box;
+html {
+--bulma-control-border-width: 1px;
+--c-main: #351c75;
+========================================================================== */
+body {
+@import url('https://fonts.googleapis.com/css?family=Muli&display=swap');
+-webkit-text-size-adjust: 100%; /* 2 */
+body {

@@ -1,0 +1,29 @@
+# TypeScript 种子语料 — fuzz 变异起点（fuzz_input.py --lang typescript）
+
+interface Item {
+  name: string;
+  count: number;
+  tags?: string[];
+}
+
+function process(data: string): void {
+  try {
+    const items: Item[] = JSON.parse(data) as Item[];
+    items.forEach((item) => {
+      console.log(item.name, item.count * 2);
+    });
+  } catch (e) {
+    console.error("parse error:", e);
+  }
+}
+
+const s = `template literal ${name} ${count} ${obj.value}`;
+const r = /regex with \d+ and "quotes"/gi;
+"escaped \"quotes\" \n \t \\ unicode \u4e2d\u6587";
+123456789012345678901234567890;
+1e999;
+-0.0;
+0xDEADBEEF;
+[1, 2, 3, 4, 5];
+{"key": "value", "nested": {"a": 1}, "null": null};
+`nested ${`inner ${depth}`}`;

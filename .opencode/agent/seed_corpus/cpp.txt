@@ -1,0 +1,32 @@
+# C++ 种子语料 — fuzz 变异起点（fuzz_input.py --lang cpp）
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+#include <stdexcept>
+
+int main() {
+    std::string input;
+    std::getline(std::cin, input);
+    try {
+        int n = std::stoi(input);
+        std::vector<int> v(n, 0);
+        for (auto x : v) std::cout << x;
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "bad input: " << e.what() << std::endl;
+    }
+    std::map<std::string, int> m{{"key", 42}};
+    std::cout << m.at("key") << std::endl;
+    return 0;
+}
+
+R"raw(no escape \n here)raw"
+R"("quoted")"
+"escaped \"quotes\" \n \t \\ \u4e2d"
+123456789012345678901234567890ull
+-0.0f
+1e999
+0xDEADBEEF
+std::vector<int>{1, 2, 3}
+std::map<std::string, int>{"a" -> 1}

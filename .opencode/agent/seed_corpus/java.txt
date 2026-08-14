@@ -1,0 +1,30 @@
+# Java 种子语料 — fuzz 变异起点（fuzz_input.py --lang java）
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("hello");
+        List<String> list = new ArrayList<>();
+        for (String s : list) {
+            if (s.length() > 100) { throw new RuntimeException("too long"); }
+        }
+        try {
+            JSONObject obj = new JSONObject(input);
+            int n = obj.getInt("count");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+"escaped \"quotes\" \n \t \\ unicode \u4e2d\u6587"
+"""text block
+with "quotes" and \n"""
+123456789012345678901234567890L
+0x1.8p1
+-0.0f
+1e310d
+String.format("%s %d %f", name, count, value)
+"a" + "b" + "c" * 1000
+{"items": [{"name": "x", "count": 3}]}
+[1, 2, 3, 4, 5]
+null

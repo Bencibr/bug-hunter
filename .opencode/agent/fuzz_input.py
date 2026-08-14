@@ -11,6 +11,11 @@ minimize 负责"把异常缩到最小复现"。
       --cmd '<目标命令，{input} 占位>' \
       --out <输出目录> [--count N] [--jobs P] [--timeout S] [--seed S]
 
+  # 从多语言种子语料选起点变异（--lang python/java/rust/swift/kotlin/
+  # c/cpp/typescript/javascript/css），比随机起点命中率更高：
+  python3 fuzz_input.py --lang python \
+      --cmd '<目标命令，{input} 占位>' --out /tmp/fuzz-out --count 500 --jobs 8
+
 示例：
   # 对 json 解析器变异 500 个样本，8 并发，异常存到 /tmp/fuzz-out
   python3 fuzz_input.py \
@@ -24,6 +29,9 @@ minimize 负责"把异常缩到最小复现"。
   - mutate_numeric 把数字字段放大/改负/改零（正则）
   - mutate_string 把字符串字段换成超长/CJK/emoji/控制字符
   - duplicate     重复文件中间一段（制造超大/重复结构）
+
+种子语料：seed_corpus/ 目录存放 10 种常用语言的典型语法片段与易错输入，
+`--lang` 从对应文件随机选一行作为变异起点（--input 与 --lang 二选一）。
 
 筛选标准：目标进程 exit code 非 0（崩溃/报错）或超时（挂起）→ 记为异常样本，
 原始输入与 stderr 一并保存到输出目录。
@@ -42,10 +50,19 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+SEED_CORPUS = Path(__file__).resolve().parent / "seed_corpus"
+
+LANGS = [
+    "python", "java", "rust", "swift", "kotlin",
+    "c", "cpp", "typescript", "javascript", "css",
+]
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--input", required=True, help="合法输入文件路径")
+    p.add_argument("--input", help="合法输入文件路径（与 --lang 二选一）")
+    p.add_argument("--lang", choices=LANGS,
+                   help=f"从种子语料选起点变异（{', '.join(LANGS)}）")
     p.add_argument("--cmd", required=True,
                    help="目标命令，用 {input} 占位表示输入文件路径")
     p.add_argument("--out", required=True, help="异常样本输出目录")
@@ -54,6 +71,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--timeout", type=float, default=10, help="单次执行超时秒（默认 10）")
     p.add_argument("--seed", type=int, default=None, help="随机种子（可复现）")
     return p.parse_args()
+
+
+def load_seed(lang: str) -> list[bytes]:
+    """从语言种子语料加载全部种子（每行一个，空行跳过）。"""
+    f = SEED_CORPUS / f"{lang}.txt"
+    if not f.is_file():
+        print(f"[fuzz_input] 种子语料缺失: {f}")
+        return []
+    return [
+        ln.encode("utf-8")
+        for ln in f.read_text(encoding="utf-8").splitlines()
+        if ln.strip() and not ln.strip().startswith("#")
+    ]
 
 
 # ---------- 变异策略 ----------

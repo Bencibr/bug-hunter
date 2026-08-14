@@ -1,0 +1,53 @@
+# Rust 种子语料 — fuzz 变异起点（fuzz_input.py --lang rust）
+
+fn main() {
+    let s = String::from("hello");
+    let v: Vec<u32> = vec![1, 2, 3];
+    let mut map = HashMap::new();
+    map.insert("key", 42);
+    match v.get(99) {
+        Some(x) => println!("{}", x),
+        None => eprintln!("index out of bounds"),
+    }
+    let parsed: Result<JsonValue, _> = serde_json::from_str(&input);
+    if let Ok(v) = parsed { println!("{}", v); }
+}
+
+r"raw string with \n not escaped"
+r#"raw with "quotes" inside"#
+"normal \"escape\" \n \u{4e2d}"
+123456789012345678901234567890u128
+-0.0f64
+1e999f32
+format!("{} {} {}", a, b, c)
+vec![0u8; 10000]
+{"items": [{"name": "x", "count": 3}]}
+[1.0, 2.0, NaN, infinity]
+null
+pub use error::ApiError;
+html_logo_url = "https://github.com/tauri-apps/tauri/raw/dev/.github/icon.png",
+};
+let mut build = cc::Build::new();
+};
+#[cfg(windows)]
+if let Some(app_pos) = path_str.find(".app/Contents/MacOS/") {
+const CONFIG_FILE: &str = "claude_desktop_config.json";
+#[pyclass(eq, eq_int, hash, frozen, name = "KeypointType")]
+all(target_os = "macos", feature = "unix-file-copy-paste")
+#[allow(clippy::large_enum_variant)]
+println!("WINE_TEST_READY");
+pub struct ProjectStatusAudit<'a> {
+#![allow(
+#[tauri::command]
+env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV},
+#[derive(Default)]
+const CONTEXT_WINDOW_ERROR_MARKERS: &[&str] = &[
+#[derive(Debug, Clone)]
+pub enum ProviderClient {
+let file2 = "src/platform/windows_delete_test_cert.cc";
+Osv,
+let manifest_path = std::path::PathBuf::from(
+pub enum PyKeypointType {
+#[error("invalid agent graph store request: {message}")]
+pub use service::VulnerabilityServiceFormat;
+#[cfg(any(

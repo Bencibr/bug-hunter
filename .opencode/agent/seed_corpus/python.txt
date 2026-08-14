@@ -1,0 +1,43 @@
+# Python 种子语料 — fuzz 变异起点（fuzz_input.py --lang python）
+# 每行一个独立种子：语法片段 + 易错输入（缩进/嵌套/字符串/数字边界）
+
+def process(data, opts=None):
+    try:
+        result = json.loads(data)
+        for item in result.get("items", []):
+            print(item["name"], item["count"] * 2)
+    except ValueError as e:
+        log_error(e)
+    finally:
+        cleanup()
+
+class Parser:
+    def parse(self, text, depth=0):
+        if depth > 100:
+            raise RecursionError("too deep")
+        return [self.parse(x, depth+1) for x in text.split(",")]
+
+"hello"
+"""multiline
+string with "quotes" and \n escapes"""
+'unicode \u00e9 \u4e2d\u6587 emoji \U0001f600'
+f"interpolated {name} {count!r} {obj.value:.2f}"
+b"bytes \x00\x01\xff"
+123456789012345678901234567890
+1e999
+-0.0
+0xdeadbeef
+1_000_000
+{"nested": {"deep": {"list": [1,2,3]}}, "empty": {}, "null": null}
+[1, [2, [3, [4, [5]]]]]
+(
+    lambda x, y: x + y
+)(1, 2)
+if True:
+    pass
+elif False:
+    pass
+else:
+    pass
+# comment with unicode 中文
+    # indented comment inside

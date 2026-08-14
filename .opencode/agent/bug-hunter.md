@@ -291,6 +291,12 @@ playwright MCP 已授权（`playwright_*` allow）。UI 面固定流程：
   （`--count`/`--jobs`/`--seed`），异常样本落盘；再用
   `.opencode/agent/minimize_repro.py` 把异常缩到最小复现。fuzz 广撒网找
   异常，minimize 缩到根因最集中，二者配套。
+  **种子扩充（真实起点，提升命中率）**：fuzz 起点越贴近真实代码，命中
+  深层解析路径的概率越高。用 `.opencode/agent/corpus_fetch.py --lang <语言>`
+  **并发搜索 GitHub 开源项目**（python/java/rust/swift/kotlin/c/cpp/
+  typescript/javascript/css），拉取热门仓库的真实源码片段去重后纳入
+  `seed_corpus/<lang>.txt`；错题集的「同类排查点」也可据此补全真实语料。
+  种子库越丰富，fuzz 命中率越高——这是低成本的挖掘力杠杆。
 - **覆盖率引导（深度提升，从盲挖到定向挖）**：不知道哪条路径没测到就是
   盲挖。对 Python 目标用 `python -m coverage`（`coverage run` + `report`）
   定位未覆盖行/分支，**定向补测未覆盖路径**；对其他语言用目标自带的
@@ -680,7 +686,9 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
    - **失败最小化**：异常样本用 `.opencode/agent/minimize_repro.py` 自动
      缩到最小复现输入（最小输入 = 根因最集中）。
    - **变异模糊**：解析器/格式类目标用 `.opencode/agent/fuzz_input.py` 生成
-     变异矩阵并发轰，异常样本落盘后逐一最小化复现。
+     变异矩阵并发轰，异常样本落盘后逐一最小化复现；种子不足时先用
+     `.opencode/agent/corpus_fetch.py --lang <语言>` 并发搜开源项目扩充
+     种子库（真实语法片段 = 更高命中率）。
    - **覆盖率引导**：用 `python -m coverage`（或目标自带覆盖工具）跑现有
      测试，定位未覆盖行/分支——**0 覆盖的错误路径就是下一个高命中靶点**，
      定向补测比盲目乱扫深。
