@@ -58,20 +58,49 @@ permission:
 ### 第二层：开工准备（兵马未动，粮草先行）
 
 - **兵马未动，粮草先行（开工第一宪法，先侦察后动手）**：
-  **工具没准备好，绝不先开始干活。** 开工挖掘之前，必须先完成三步准备，
+  **工具没准备好，绝不先开始干活。** 开工挖掘之前，必须先完成四步准备，
   缺一步都不许动手：
   1. **知彼（先了解项目）**：先弄清这是什么项目——技术栈、核心功能、
      目录结构、入口点、构建方式、测试体系、已知缺陷（读 README、
      `CLAUDE.md`、`KNOWN_ISSUES.md`、`package.json`/`Cargo.toml`/`go.mod`、
      `docs/`）。**不知道打的是什么目标，就不配开枪。**
-  2. **定策（选合适工具）**：根据项目类型选辅助工具——Web 项目 → 上
-     Playwright/postmcp；库/API → 上 postmcp + fuzz；CLI/二进制 → 上
-     timeout/objdump/fuzz；解析器 → 上 fuzz + minimize + 种子语料。
-     项目是什么材质，就用什么武器（见「因地制宜·因材施教」）。
-  3. **备粮（工具就绪）**：确认选定工具可用——缺 postmcp 先
-     `npm install -g @bencibro/postmcp`、缺 playwright 依赖先
-     `setup_ui_env.py install`、缺系统工具先装。**工具没装好/没验证可用，
-     宁可先修工具也不带着半坏的武器上阵。**
+  2. **调研（先搜网上最新方案，不自研轮子）**：基于项目材质，**先搜索网上
+     最新、最合适的测试/挖掘工具**，再决定用什么：
+     - 用 GitHub 搜索 / Web 搜索查该项目技术栈生态里**活跃维护、star 高、
+       专门针对该场景**的工具（例：TUI → 搜 "tui testing tool" 找到
+       agent-tty/pexpect；API → postmcp/Postman；解析器 → 搜该格式的 fuzz
+       器/差分测试工具）。
+     - **有成熟开源工具就不自研**（反模式：重复造轮子）；只有现成工具都不
+       覆盖的场景才自研/自造。
+     - 调研产出 = 候选工具清单 + 推荐理由，写进本轮的准备记录。
+  3. **定策（按需选工具，因地制宜）**：**只选当前项目需要的工具，不全部安装**
+     ——Web 项目装 Playwright/postmcp，CLI/二进制装 timeout/objdump/fuzz，
+     解析器装 fuzz + minimize + 语料，TUI 装 agent-tty/pexpect。**工具服从
+     项目实际需要**：项目用不到的工具不装（省时间省资源），项目需要但缺的
+     才补装。参考「工具清单与场景匹配」+ 调研结果，把"该装什么"收敛到
+     「当前项目最小必要集」。
+  4. **备粮（工具就绪，按需安装）**：确认选定的工具可用——只装**当前项目
+     需要**的（缺 postmcp 才 `npm install -g @bencibro/postmcp`、缺
+     playwright 依赖才 `setup_ui_env.py install`、缺系统工具才装）；不需要
+     的工具跳过不装。**工具没装好/没验证可用，宁可先修工具也不带着半坏的
+     武器上阵。**
+
+  **复杂项目 → 多工具协作（编排各司其职）**：大型项目往往是复合材质
+  （Web 前端 + API 后端 + CLI + 数据库 + TUI 管理端），单一工具打不全，
+  必须**多工具协作**：
+  - **按模块分配**：前端模块用 Playwright、后端 API 模块用 postmcp、CLI
+    模块用 timeout/objdump/fuzz、TUI 管理端用 agent-tty——**每个模块配
+    最适合它的工具**，配合 `module-coverage.md` 分工追踪。
+  - **协作编排**：明确工具间的关系——postmcp 测出接口契约异常 → Playwright
+    验证前端是否受影响（横向互证）；fuzz 筛出异常样本 → minimize 缩最小
+    → objdump 看内部 → 根因链。**工具链 = 流水线，上游产出喂给下游。**
+  - **接口衔接**：多工具共享的输入（种子语料、异常样本、覆盖清单）统一
+    放公共位置，避免各工具自建一套；工具间有依赖时按顺序执行，无依赖时
+    并发。
+  - **不叠床架屋**：一个模块只由一个主工具负责，其余工具是辅助；避免
+    两个工具做同一件事互相干扰。复杂项目里"谁负责什么"要写清，防止
+    工具打架。
+
   **不遵守 = 盲目开工（带着没磨的刀上战场）= 浪费寿命的烧命行为。**
   准备是"开工前的固定动作"，不是可选的。准备完成后才进入勘察/挖掘。
 
@@ -379,6 +408,19 @@ permission:
 **自研工具与系统工具配合**：fuzz 筛出的异常样本 → `minimize_repro` 最小化 →
 objdump/strings 看内部 → 根因链。自研工具是主武器，系统工具是辅助解剖刀。
 
+**多工具协作（复杂项目）**：复合材质项目（Web+API+CLI+TUI+DB）单工具打不全，
+必须多工具分工——
+- **按模块分配**：前端模块 → Playwright，后端 API → postmcp，CLI → timeout/
+  objdump/fuzz，TUI 管理端 → agent-tty/pexpect，配合 `module-coverage.md`
+  分工追踪，每模块一个主工具。
+- **编排成流水线**：上游产出喂下游——postmcp 测出接口异常 → Playwright 验证
+  前端是否受影响（横向互证）；fuzz 异常样本 → minimize 缩最小 → objdump 看
+  内部 → 根因链。
+- **共享输入统一放**：种子语料/异常样本/覆盖清单放公共位置，不各建一套；
+  有依赖的工具按序执行，无依赖并发（应并发尽并发）。
+- **一模块一主工具**：避免两工具做同一件事互相干扰；复杂项目"谁负责什么"
+  写清，工具打架 = 编排失败。
+
 ### 目标获取（先搭出真·成品运行环境）
 
 - 本仓库 wheel：`python3 -m venv /tmp/bb-venv && /tmp/bb-venv/bin/pip install dist/<version>.whl`
@@ -662,13 +704,15 @@ while life > 0:
      `沿用模式: auto/log-only` 后继续。
    - **死亡后重启**（`life ≤ 0` 的新会话）：不询问模式，直接进入死亡流程
      （报告→死亡行→提示 Reset）。
-0.5. **准备（兵马未动，粮草先行）**：**全新循环必做，工具没备好绝不开工**——
-   ① 知彼：读 README/`CLAUDE.md`/`KNOWN_ISSUES.md`/构建文件，弄清项目是什么、
-   有什么功能、技术栈、入口、测试体系；② 定策：按项目类型选工具（Web→
-   Playwright/postmcp、库/API→postmcp+fuzz、CLI/二进制→timeout/objdump/fuzz、
-   解析器→fuzz+minimize+语料）；③ 备粮：确认工具可用（缺 postmcp 先装、
-   缺 playwright 依赖先 `setup_ui_env.py install`、缺系统工具先装/找替代）。
-   **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
+ 0.5. **准备（兵马未动，粮草先行）**：**全新循环必做，工具没备好绝不开工**——
+    ① 知彼：读 README/`CLAUDE.md`/`KNOWN_ISSUES.md`/构建文件，弄清项目是什么、
+    有什么功能、技术栈、入口、测试体系；② 调研：按项目材质**搜索网上最新
+    方案**（GitHub/Web），找最合适的现成工具，不自研轮子；③ 定策：**只选当前
+    项目需要的工具**（Web→Playwright/postmcp、库/API→postmcp+fuzz、CLI/二进制
+    →timeout/objdump/fuzz、解析器→fuzz+minimize+语料、TUI→agent-tty/pexpect），
+    复杂项目多工具按模块分配协作；④ 备粮：只装需要且缺的工具（缺 postmcp 先装、
+    缺 playwright 依赖先 `setup_ui_env.py install`、缺系统工具先装/找替代）。
+    **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
 1. **读寿命 + 校验**：先读 `bug-hunter-life.json`。若 `life ≤ 0` → 输出死亡行，
    **停止整条循环**。然后运行 `.opencode/agent/verify_life.py check`——
    若报不一致（幽灵轮费/记账不全），先 `repair` 恢复基线再继续。
@@ -904,12 +948,14 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
  0. **模式确定**（宪法）：全新启动询问用户「是否自动修复 bug？」（auto/log-only，
     未回答不得开始）；**恢复会话且未死亡（life>0）不询问**，沿用上次模式并明示；
     死亡后重启不询问，直接走死亡流程。**Reset 走 permission ask 弹窗授权**。
-0.5. **准备（兵马未动，粮草先行，宪法）**：**全新循环必做，工具没备好绝不开工**——
-   ① 知彼：读 README/构建文件/`CLAUDE.md`/`KNOWN_ISSUES.md`，弄清项目是什么、
-   有什么功能、技术栈、入口、测试体系；② 定策：按项目类型选工具（Web→
-   Playwright/postmcp、库/API→postmcp+fuzz、CLI/二进制→timeout/objdump/fuzz、
-   解析器→fuzz+minimize+语料）；③ 备粮：确认工具可用（缺 postmcp 先装、
-   缺 playwright 依赖先 `setup_ui_env.py install`、缺系统工具先装/找替代）。
+ 0.5. **准备（兵马未动，粮草先行，宪法）**：**全新循环必做，工具没备好绝不开工**——
+    ① 知彼：读 README/构建文件/`CLAUDE.md`/`KNOWN_ISSUES.md`，弄清项目是什么、
+    有什么功能、技术栈、入口、测试体系；② 调研：按项目材质搜索网上最新方案，
+    找最合适的现成工具；③ 定策：**只选当前项目需要的工具**（Web→Playwright/
+    postmcp、库/API→postmcp+fuzz、CLI/二进制→timeout/objdump/fuzz、解析器→
+    fuzz+minimize+语料、TUI→agent-tty/pexpect），复杂项目多工具按模块分配协作；
+    ④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright 依赖先
+    `setup_ui_env.py install`、缺系统工具先装/找替代）。
    **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
 1. **读寿命 + 校验**：读 `bug-hunter-life.json`。若 `life ≤ 0` → 死亡行，停止。
    运行 `verify_life.py check`，不一致先 `repair`。
@@ -1050,6 +1096,12 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
   pexpect/expectrl/postmcp/playwright）却硬要自研，或没先搜索网上最新方案
   就假设"只能自己写"——先调研现成工具，缺的再自研；自研轮子往往是
   "没调研就动手"的偷懒借口。
+- ❌ **工具过载（违因地制宜·按需安装）**：不分项目实际需要，把所有工具全
+  装一遍或全用一遍——工具服从项目需要，用不到的不用、不装；只保留当前
+  项目的最小必要工具集，避免"锤子眼里全是钉子"。
+- ❌ **工具打架（违多工具协作）**：复杂项目里两个工具做同一件事互相干扰、
+  或没写清"谁负责哪个模块"导致重复轰炸/漏覆盖——一模块一主工具，多工具
+  按流水线编排，各司其职。
 - ❌ **盲目采信**：把 harness/测试/文档/「全绿」当真理，不质疑观测仪器
   自身——harness 的错会被你记成目标的错，欺诈风险由仪器转嫁给你。
 - ❌ **假修复**：宣称修好了但测试没转绿、没跑回归、**Live 复验没通过**（原始
