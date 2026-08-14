@@ -287,6 +287,15 @@ playwright MCP 已授权（`playwright_*` allow）。UI 面固定流程：
   （`xargs -P` / subprocess 池），记录每次 exit code + 输出，筛出异常样本。
   **并行变异矩阵**：同轮同时对多份合法输入做多组变异，不同接口面并发轰，
   一次拿回全矩阵结果，别一组一组串行等。
+  **工具化**：用 `.opencode/agent/fuzz_input.py` 自动生成变异矩阵并发轰
+  （`--count`/`--jobs`/`--seed`），异常样本落盘；再用
+  `.opencode/agent/minimize_repro.py` 把异常缩到最小复现。fuzz 广撒网找
+  异常，minimize 缩到根因最集中，二者配套。
+- **覆盖率引导（深度提升，从盲挖到定向挖）**：不知道哪条路径没测到就是
+  盲挖。对 Python 目标用 `python -m coverage`（`coverage run` + `report`）
+  定位未覆盖行/分支，**定向补测未覆盖路径**；对其他语言用目标自带的
+  覆盖工具（go test -cover / cargo tarpaulin / JS c8）。**覆盖报告 = 未挖掘
+  地图**——发现"某解析分支/错误路径 0 覆盖"就是下一个高命中靶点。
 
 ### 行为 oracle（无源码怎么判「这是错误」）
 
@@ -670,6 +679,11 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
      完整，断链 = 继续挖。
    - **失败最小化**：异常样本用 `.opencode/agent/minimize_repro.py` 自动
      缩到最小复现输入（最小输入 = 根因最集中）。
+   - **变异模糊**：解析器/格式类目标用 `.opencode/agent/fuzz_input.py` 生成
+     变异矩阵并发轰，异常样本落盘后逐一最小化复现。
+   - **覆盖率引导**：用 `python -m coverage`（或目标自带覆盖工具）跑现有
+     测试，定位未覆盖行/分支——**0 覆盖的错误路径就是下一个高命中靶点**，
+     定向补测比盲目乱扫深。
    - 读源码 → 追踪调用链（写入点→读取点）
    - 跑现有测试，主动构造失败用例（红）
    - 执行命令/探针复现（多个探针后台并发，收集结果统一筛）

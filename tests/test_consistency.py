@@ -50,7 +50,8 @@ class ConsistencyTestCase(unittest.TestCase):
 
     def test_core_scripts_have_tests(self):
         """每个核心脚本都应有对应测试文件（广度保障）。"""
-        scripts = ["verify_life", "launch_bug_hunter", "setup_ui_env", "minimize_repro"]
+        scripts = ["verify_life", "launch_bug_hunter", "setup_ui_env",
+                   "minimize_repro", "fuzz_input"]
         tests = [p.name for p in (REPO / "tests").glob("test_*.py")]
         for s in scripts:
             self.assertTrue(
