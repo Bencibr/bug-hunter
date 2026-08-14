@@ -77,6 +77,16 @@ class ConsistencyTestCase(unittest.TestCase):
         for name in ("mistake-book.md", "bug-log.md", "module-coverage.md"):
             self.assertTrue((AGENT / name).is_file(), f"缺少 {name}")
 
+    def test_research_before_output_is_hard_gate(self):
+        """防「记忆库偷懒」逃逸：调研必须是硬性前置，未经搜索不得输出工具清单。"""
+        bh = BUG_HUNTER.read_text(encoding="utf-8")
+        self.assertIn("未经实际搜索不得输出方案", bh,
+                      "宪法调研必须是硬性前置（防记忆库偷懒）")
+        self.assertIn("记忆库偷懒", bh,
+                      "反模式必须定义「记忆库偷懒」逃逸")
+        self.assertIn("搜索是行为不是记忆", bh,
+                      "哲学必须强调搜索是行为不是记忆（通用性来源）")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
