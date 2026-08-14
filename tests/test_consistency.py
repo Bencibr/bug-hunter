@@ -20,6 +20,11 @@ AGENT = REPO / ".opencode" / "agent"
 BUG_HUNTER = AGENT / "bug-hunter.md"
 README = REPO / "README.md"
 PYPROJECT = REPO / "pyproject.toml"
+RUNTIME_AGENT_FILES = {
+    ".opencode/agent/bug-hunter-life.json",
+    ".opencode/agent/bug-hunter-life.json.snapshot",
+    ".opencode/agent/repair-audit.log",
+}
 
 
 class ConsistencyTestCase(unittest.TestCase):
@@ -45,7 +50,10 @@ class ConsistencyTestCase(unittest.TestCase):
         """bug-hunter.md 引用的 .opencode/agent/* 路径必须存在。"""
         bh = BUG_HUNTER.read_text(encoding="utf-8")
         refs = set(re.findall(r"\.opencode/agent/[A-Za-z0-9_.\-]+", bh))
-        missing = [p for p in refs if not (REPO / p).exists()]
+        missing = [
+            p for p in refs
+            if not (REPO / p).exists() and p not in RUNTIME_AGENT_FILES
+        ]
         self.assertEqual(missing, [], f"提示词引用了不存在的文件: {missing}")
 
     def test_reset_permission_is_ask(self):
@@ -75,10 +83,10 @@ class ConsistencyTestCase(unittest.TestCase):
         wildcards = {p for p in refs if "*" in p or p.endswith("findings_round")}
         refs -= wildcards
         # 运行时生成/忽略文件不常驻，跳过
-        runtime = {".opencode/agent/bug-hunter-life.json",
-                   ".opencode/agent/bug-hunter-life.json.snapshot",
-                   ".opencode/agent/repair-audit.log"}
-        missing = [p for p in refs if not (REPO / p).exists() and p not in runtime]
+        missing = [
+            p for p in refs
+            if not (REPO / p).exists() and p not in RUNTIME_AGENT_FILES
+        ]
         self.assertEqual(missing, [], f"README 引用了不存在的文件: {missing}")
 
     def test_required_md_templates_exist(self):
