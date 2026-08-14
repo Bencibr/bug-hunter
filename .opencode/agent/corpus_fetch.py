@@ -6,20 +6,34 @@
 深层解析路径。本工具**并发**搜索 GitHub 开源项目，拉取代表性源码文件，
 提取语法片段去重后并入 seed_corpus/<lang>.txt。
 
+支持按项目定制（因地制宜）：
+  - 纯语言：--lang python                → 搜该语言最热门仓库
+  - 按项目类型：--lang python --query "json parser"
+                                         → 只搜 JSON 解析器类 Python 项目（种子贴合被测项目材质）
+  - 指定仓库：--lang rust --repo serde-rs/json
+                                         → 直接从指定开源项目提取（测同类项目的上游/对照实现）
+  --query 与 --repo 可组合使用（query 缩小搜索范围，repo 精确指定）。
+
 用法：
   python3 corpus_fetch.py --lang python --count 200 --per-repo 20
+  python3 corpus_fetch.py --lang python --query "json parser" --count 200
+  python3 corpus_fetch.py --lang rust --repo serde-rs/json --count 100
   python3 corpus_fetch.py --lang rust --token <GH_TOKEN>   # 更高 rate limit
 
 参数：
   --lang      语言（python/java/rust/swift/kotlin/c/cpp/typescript/javascript/css）
+  --query     按项目类型定制搜索关键词（如 "json parser"/"http client"/
+              "markdown"）——只搜该类项目，种子贴合被测项目材质
+  --repo      指定仓库 full_name（如 "serde-rs/json"）直接提取，跳过搜索
   --count     目标种子数（默认 200）
   --per-repo  每仓库最多提取种子数（默认 20，防单仓刷屏）
   --token     GitHub token（可选，提升 rate limit 到 5000/h）
   --dry-run   只搜索并打印仓库列表，不下载（联调用）
 
 流程：
-  1. GitHub 仓库搜索 API（并发，q=language:<lang>&sort=stars）
-  2. 对每个热门仓库，经 tree API 找到源码文件（按语言扩展名过滤）
+  1. 仓库来源：--repo 直接指定；否则 GitHub 仓库搜索 API（并发，
+     q=language:<lang> 或 +query 关键词，sort=stars）
+  2. 对每个仓库，经 tree API 找到源码文件（按语言扩展名过滤）
   3. 并发下载文件 raw 内容（上限 per-repo 个文件）
   4. 提取种子行：去掉注释/空行/import 块，截断超长行（>500 字符截断），
      保留含语法结构（括号/引号/关键字/字符串字面量）的行
@@ -77,11 +91,18 @@ def _get(url: str, token: str | None, timeout: float = 10) -> dict | bytes:
         return data
 
 
-def search_repos(lang: str, token: str | None, per_page: int = 10,
-                 sort: str = "stars") -> list[str]:
-    """搜索该语言最热门的开源仓库，返回 full_name 列表。"""
+def search_repos(lang: str, token: str | None, query: str | None = None,
+                 per_page: int = 10, sort: str = "stars") -> list[str]:
+    """搜索该语言的热门开源仓库（可选按项目类型 query 定制），返回 full_name 列表。"""
+    from urllib.parse import quote
+
     cfg = LANGS[lang]
-    q = f"language:{cfg['gh']}&sort={sort}&order=desc"
+    q = f"language:{cfg['gh']}"
+    if query:
+        # 按项目类型定制：JSON 解析器 / HTTP client / markdown 等，只搜该类项目
+        # 用 + 连接（GitHub 搜索 AND 语义），query 内部空格再 URL 编码
+        q += f"+{quote(query)}"
+    q += f"&sort={sort}&order=desc"
     url = f"{API}/search/repositories?q={q}&per_page={per_page}"
     d = _get(url, token)
     if isinstance(d, bytes) or not d.get("items"):
@@ -169,20 +190,31 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--lang", required=True, choices=sorted(LANGS),
                    help="目标语言")
+    p.add_argument("--query", default=None,
+                   help="按项目类型定制搜索关键词（如 'json parser'/'http client'），"
+                        "只搜该类项目，种子贴合被测项目材质")
+    p.add_argument("--repo", default=None,
+                   help="指定仓库 full_name（如 'serde-rs/json'）直接提取，跳过搜索")
     p.add_argument("--count", type=int, default=200, help="目标种子数（默认 200）")
     p.add_argument("--per-repo", type=int, default=20,
                    help="每仓库最多提取种子数（默认 20）")
     p.add_argument("--token", default=None, help="GitHub token（可选，提升 rate limit）")
-    p.add_argument("--dry-run", action="store_true", help="只搜仓库列表不下载")
+    p.add_argument("--dry-run", action="store_true", help="只搜索并打印仓库列表不下载")
     p.add_argument("--seed", type=int, default=None, help="随机种子")
     args = p.parse_args()
 
-    print(f"[corpus_fetch] 搜索 {args.lang} 开源项目…")
-    repos = search_repos(args.lang, args.token)
-    if not repos:
-        print("[corpus_fetch] ✗ 未找到仓库（rate limit 或网络问题）")
-        return 1
-    print(f"[corpus_fetch] 找到 {len(repos)} 个热门仓库: {repos[:5]}…")
+    # 仓库来源：--repo 指定 或 搜索（按语言 + 可选 query 定制）
+    if args.repo:
+        repos = [args.repo]
+        print(f"[corpus_fetch] 指定仓库: {args.repo}")
+    else:
+        src = f"语言={args.lang}" + (f" 项目类型={args.query!r}" if args.query else "")
+        print(f"[corpus_fetch] 搜索 {src} 开源项目…")
+        repos = search_repos(args.lang, args.token, query=args.query)
+        if not repos:
+            print("[corpus_fetch] ✗ 未找到仓库（rate limit 或网络问题）")
+            return 1
+        print(f"[corpus_fetch] 找到 {len(repos)} 个热门仓库: {repos[:5]}…")
 
     if args.dry_run:
         print("[corpus_fetch] dry-run: 不下载。")

@@ -423,7 +423,7 @@ permission:
 |------|------|--------|
 | `fuzz_input.py` | 变异模糊找异常（解析器/格式/接口输入） | `--input 合法样本 --cmd 目标 --out 异常目录 --count N --jobs P` |
 | `minimize_repro.py` | 异常输入缩到最小复现（根因集中） | `--cmd 目标 --input 异常 --check 复现判定` |
-| `corpus_fetch.py` | 并发搜开源项目扩充种子语料 | `--lang python --count 200` |
+| `corpus_fetch.py` | 并发搜开源项目扩充种子语料（支持按项目类型/仓库定制） | `--lang python --query "json parser"` / `--lang rust --repo serde-rs/json` |
 | `setup_ui_env.py` | UI 面环境自检/补装 | `check` / `install` |
 | `verify_life.py` | 寿命/防舞弊（机制，非挖掘） | `check`/`settle` 等 |
 | `launch_bug_hunter.py` | 启动协议（机制） | `pre`/`post` |

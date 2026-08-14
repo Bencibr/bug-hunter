@@ -54,6 +54,19 @@
 | Kaspresso | Kotlin UI 测试（1922★） | KasperskyLab/Kaspresso | 2026-08-14 |
 | adb | 设备控制万能 | Android SDK | 2026-08-14 |
 
+### iOS 移动应用
+| 工具 | 用途 | 来源 | 验证日期 |
+|------|------|------|---------|
+| OWASP MASTG | 移动应用安全测试指南（13111★） | OWASP/mastg | 2026-08-14 |
+| appium-xcuitest-driver | iOS UI 自动化（XCUITest 驱动，876★） | appium/appium-xcuitest-driver | 2026-08-14 |
+| AutoMate | XCTest 扩展助手（290★） | PGSSoft/AutoMate | 2026-08-14 |
+| frida-ios-dump | 越狱设备脱壳拉取 decrypted ipa（3906★） | AloneMonkey/frida-ios-dump | 2026-08-14 |
+| objection | Frida 运行时探索（跨平台，9315★） | sensepost/objection | 2026-08-14 |
+| Keychain-Dumper | Keychain 项检查（1420★） | ptoomey3/Keychain-Dumper | 2026-08-14 |
+| truegaze | iOS/Android 静态分析（敏感信息，134★） | nightwatchcybersecurity/truegaze | 2026-08-14 |
+| iOS_Reverse_Engineering | IPA 逆向参考（558★） | LaurieWired/iOS_Reverse_Engineering | 2026-08-14 |
+| ivan-sincek/ios-penetration-testing-cheat-sheet | iOS 渗透测试速查（421★） | ivan-sincek/ios-penetration-testing-cheat-sheet | 2026-08-14 |
+
 ---
 
 ## 白盒测试工具
@@ -105,5 +118,8 @@
 ## 待验证/备忘
 - ⏰ rust GUI 工具（egui-driver 等）下次遇到 Rust 桌面项目时确认仍活跃
 - ⏰ Android 工具链（MobSF/Frida 版本）遇 Android 项目时确认
+- ✅ 自研 corpus_fetch.py 已支持按项目定制：`--query "json parser"`（按项目类型
+  搜，种子贴合被测材质）+ `--repo serde-rs/json`（指定仓库提取）——遇解析器/
+  格式类目标时用项目类型 query 拉同类项目种子，命中率高于纯语言种子
 - 本库所有条目验证日期均为 2026-08-14，**2026-09-13 后全部过期**需重新验证
 

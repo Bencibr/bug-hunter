@@ -48,6 +48,15 @@ class CorpusFetchTestCase(unittest.TestCase):
     def test_search_repos_no_items(self, _):
         self.assertEqual(cf.search_repos("python", None), [])
 
+    @mock.patch("corpus_fetch._get")
+    def test_search_repos_with_query_includes_query(self, mock_get):
+        """按项目类型定制：query 拼进 URL，分隔用 +，内部空格用 %20。"""
+        mock_get.return_value = {"items": [{"full_name": "a/b"}]}
+        cf.search_repos("python", token=None, query="json parser")
+        url = mock_get.call_args[0][0]
+        self.assertIn("language:python+json%20parser", url)
+        self.assertNotIn("json parser", url)  # 原始空格不应出现（未编码）
+
     # ---- list_source_files ----
 
     @mock.patch("corpus_fetch._get")
@@ -117,6 +126,36 @@ class CorpusFetchTestCase(unittest.TestCase):
         self.assertTrue(f.is_file())
         content = f.read_text(encoding="utf-8")
         self.assertIn("def f():", content)
+
+    @mock.patch("corpus_fetch.list_source_files", return_value=["a.py"])
+    @mock.patch("corpus_fetch.fetch_raw", return_value='def parse(s):\n    return s\n')
+    @mock.patch.object(sys, "argv",
+                       ["corpus_fetch", "--lang", "python",
+                        "--repo", "owner/json-parser",
+                        "--count", "5", "--per-repo", "1", "--seed", "1"])
+    def test_main_with_repo_skips_search(self, *_):
+        """--repo 指定仓库：跳过 search_repos，直接用指定仓库。"""
+        with mock.patch("corpus_fetch.search_repos") as mock_search:
+            rc = cf.main()
+        self.assertEqual(rc, 0)
+        mock_search.assert_not_called()  # 指定仓库不触发搜索
+        content = (cf.SEED_CORPUS / "python.txt").read_text(encoding="utf-8")
+        self.assertIn("def parse(s):", content)
+
+    @mock.patch("corpus_fetch.search_repos", return_value=["repo/x"])
+    @mock.patch("corpus_fetch.list_source_files", return_value=["a.py"])
+    @mock.patch("corpus_fetch.fetch_raw", return_value='def parse(s):\n    return s\n')
+    @mock.patch.object(sys, "argv",
+                       ["corpus_fetch", "--lang", "python",
+                        "--query", "json parser",
+                        "--count", "5", "--per-repo", "1", "--seed", "1"])
+    def test_main_with_query_passes_to_search(self, *_):
+        """--query 定制搜索：query 关键词传给 search_repos。"""
+        rc = cf.main()
+        self.assertEqual(rc, 0)
+        # search_repos 被调用且收到 query 参数
+        kwargs = cf.search_repos.call_args
+        self.assertEqual(kwargs.kwargs.get("query"), "json parser")
 
 
 if __name__ == "__main__":

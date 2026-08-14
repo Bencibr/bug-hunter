@@ -41,3 +41,31 @@ else:
     pass
 # comment with unicode 中文
     # indented comment inside
+def spec_text():
+load_dotenv()
+def setup(app):
+data = middle_json_content
+def test_markdown_it_py(benchmark, spec_text):
+Date: 2013-08-25
+'sphinx.ext.autodoc',
+app = Server()
+return Path(__file__).parent.joinpath("samples", "spec.md").read_text()
+if pred == gt:
+with tempfile.TemporaryDirectory() as temp_dir:
+def evaluate(pred, gt):
+self.tag = tag
+source_suffix = ['.rst', '.md']
+copyright = "2019, Hsiaoming Yang"
+class TableTree(Tree):
+freq = psutil.cpu_freq()
+def do_parse(path_list, output_dir):
+build(sys.argv[1:] if len(sys.argv) > 1 else None)
+load_dotenv()
+MAX_FILE_SIZE_BYTES: int = MAX_FILE_SIZE_MB * 1024 * 1024  # 5MB limit
+def evaluate(pred, gt):
+pdf_bytes_list = []
+extensions = [
+"""Test that path traversal attacks are blocked"""
+nltk.download("punkt")
+def calculate_bleu_score(reference_text: str, candidate_text: str) -> float:
+path = Path(input_path).expanduser().resolve()
