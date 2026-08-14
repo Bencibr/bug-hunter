@@ -3,8 +3,9 @@
 > **Version 0.0.6** · [Git tag: v0.0.6](https://github.com/Bencibr/bug-hunter)
 
 永无止境地挖掘错误的对抗性审计 Agent。白盒源码审计 + 黑盒成品测试
-（CLI / PTY / 数据接口 / **UI 视觉交互面**），多轮循环机制：每轮消耗
-1 点寿命做一轮全量发现，找到真实错误 +1，欺诈 -1，寿命归 0 即死亡。
+（CLI / PTY / 数据接口 / **UI 视觉交互面** / **API 服务接口面**），多轮循环
+机制：每轮消耗 1 点寿命做一轮全量发现，找到真实错误 +1，欺诈 -1，
+寿命归 0 即死亡。
 
 ---
 
@@ -48,6 +49,9 @@
   `test-report.md` 汇总测试报告。
 - **UI 挖 bug**：通过 Playwright 打开网页，多断点截图 + DOM 几何断言 +
   交互轰炸 + 状态覆盖，找布局崩塌、焦点陷阱、文案截断、对比度不足等视觉 bug。
+- **API 挖 bug**：通过 **postmcp** 对 HTTP(REST)/GraphQL/WebSocket 接口做
+  契约轰炸——参数边界/越权/注入/状态码断言，配合 Swagger/Postman 导入全接口
+  清单。可与 Playwright 配合（同应用 API 层 + UI 层互证），也可单独使用。
 - **测试广度保障**：65 例单元测试覆盖校验器/启动协议/环境自检/最小化/模糊/
   种子扩充，外加一致性测试防文档漂移（版本/引用/权限/覆盖）——改动不怕破坏。
 
@@ -79,7 +83,7 @@
 | `tests/test_corpus_fetch.py` | 种子扩充测试（9 例：搜索/提取/去重/端到端） |
 | `tests/test_consistency.py` | 一致性测试（6 例：版本/引用/权限/覆盖防漂移） |
 | `tests/run_tests.sh` | 一键测试入口 |
-| `opencode.json` | Playwright MCP 配置（UI 挖 bug 用） |
+| `opencode.json` | MCP 配置（Playwright UI + postmcp API） |
 
 > 提示：`bug-hunter-life.json`、`.snapshot`、`repair-audit.log` 已被 `.gitignore`
 > 排除。每个使用者 clone 后从初始态（life=1）各自开始，历史发现不共享。
@@ -90,6 +94,7 @@
 
 - **Python 3**：运行 `verify_life.py` / `launch_bug_hunter.py`
 - **Node.js + npx**：运行 Playwright MCP（UI 挖 bug 才需要）
+- **postmcp**（API 挖 bug 需要，未装会自动安装）：`npm install -g @bencibro/postmcp`
 - **AI 编程工具**：任选一款支持 agent/skill 的（见下文）
 
 ---
@@ -311,7 +316,41 @@ agent 会按标准流程执行：
 
 ---
 
+## API 挖 bug 快速上手
+
+bug-hunter 用 **postmcp** 挖 API/接口 bug。前提：目标接口可访问（本地服务
+或线上），且已装 postmcp（`npm install -g @bencibro/postmcp`）。
+
+```
+向 bug-hunter 发起任务，例如：
+「黑盒模式，API 服务面，目标 http://localhost:8080/api，挖接口契约和安全 bug」
+```
+
+agent 会按标准流程执行：
+
+1. `project_create` + `env_configure`（baseUrl）+ `env_switch`
+2. `env_set_allowlist` 配置目标域名白名单（安全底线，空白名单拒绝出站）
+3. `swagger_import` / `postman_import` 导入接口清单（接口 = 覆盖单元）
+4. `http_request` 逐接口扫 + 参数边界轰炸（超长/空/负/NaN/类型错位）
+5. 越权/未鉴权探测、SQLi/命令注入、敏感字段泄漏检查
+6. 状态码 + 响应结构断言（`assertions`/`jsonpathFilter`）
+7. `graphql_request`（GraphQL 服务）、`ws_connect`+`ws_wait`（WebSocket）
+
+**配合 Playwright**：同一应用的 API 层（postmcp）与前端交互层（Playwright）
+可同时挖、互相印证——UI 操作背后的接口契约错误，两者交叉定位更准。
+也可单独使用 postmcp 只挖接口。
+
+> OpenCode 用户无需额外配置（`opencode.json` 已内置 postmcp MCP）。
+> 其他工具需自行配置：`command: ["postmcp"]`。
+
+---
+
 ## 常见问题
+
+**Q: postmcp 没装会怎样？**
+> agent 会自动检测：工具集缺 `postmcp_*` 时运行
+> `npm install -g @bencibro/postmcp` 主动安装，装完提示重启 opencode 会话
+> （MCP 启动时加载）。`opencode.json` 已内置 postmcp 配置，clone 后即用。
 
 **Q: 为什么启动时要跑 `launch_bug_hunter.py pre`？**
 > 它会先 `check`（校验寿命文件一致性）再 `snapshot`（建立基线快照）。

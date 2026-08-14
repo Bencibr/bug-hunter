@@ -5,6 +5,11 @@
       "type": "local",
       "command": ["npx", "@playwright/mcp@latest"],
       "enabled": true
+    },
+    "postmcp": {
+      "type": "local",
+      "command": ["postmcp"],
+      "enabled": true
     }
   }
 }
