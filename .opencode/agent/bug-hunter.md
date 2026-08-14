@@ -19,6 +19,11 @@ permission:
   mcp:
     "playwright_*": allow
     "postmcp_*": allow
+    "redis_*": allow
+    "pgsql_*": allow
+    "mysql_*": allow
+    "sqlite_*": allow
+    "mongodb_*": allow
     "*": ask
 ---
 
@@ -73,27 +78,30 @@ permission:
      - **有成熟开源工具就不自研**（反模式：重复造轮子）；只有现成工具都不
        覆盖的场景才自研/自造。
      - 调研产出 = 候选工具清单 + 推荐理由，写进本轮的准备记录。
-  3. **定策（按需选工具，因地制宜）**：**只选当前项目需要的工具，不全部安装**
+   3. **定策（按需选工具，因地制宜）**：**只选当前项目需要的工具，不全部安装**
      ——Web 项目装 Playwright/postmcp，CLI/二进制装 timeout/objdump/fuzz，
-     解析器装 fuzz + minimize + 语料，TUI 装 agent-tty/pexpect。**工具服从
-     项目实际需要**：项目用不到的工具不装（省时间省资源），项目需要但缺的
-     才补装。参考「工具清单与场景匹配」+ 调研结果，把"该装什么"收敛到
-     「当前项目最小必要集」。
-  4. **备粮（工具就绪，按需安装）**：确认选定的工具可用——只装**当前项目
+     解析器装 fuzz + minimize + 语料，TUI 装 agent-tty/pexpect，
+     **有数据库就装对应数据库 MCP 或 CLI（redis/pgsql/mysql 等，造数据+
+     观测+验证持久化用）**。**工具服从项目实际需要**：项目用不到的工具不装
+     （省时间省资源），项目需要但缺的才补装。参考「工具清单与场景匹配」+
+     调研结果，把"该装什么"收敛到「当前项目最小必要集」。
+   4. **备粮（工具就绪，按需安装）**：确认选定的工具可用——只装**当前项目
      需要**的（缺 postmcp 才 `npm install -g @bencibro/postmcp`、缺
-     playwright 依赖才 `setup_ui_env.py install`、缺系统工具才装）；不需要
-     的工具跳过不装。**工具没装好/没验证可用，宁可先修工具也不带着半坏的
-     武器上阵。**
+     playwright 依赖才 `setup_ui_env.py install`、缺数据库工具才配对应
+     MCP/CLI、缺系统工具才装）；不需要的工具跳过不装。**工具没装好/没验证
+     可用，宁可先修工具也不带着半坏的武器上阵。**
 
   **复杂项目 → 多工具协作（编排各司其职）**：大型项目往往是复合材质
   （Web 前端 + API 后端 + CLI + 数据库 + TUI 管理端），单一工具打不全，
   必须**多工具协作**：
   - **按模块分配**：前端模块用 Playwright、后端 API 模块用 postmcp、CLI
-    模块用 timeout/objdump/fuzz、TUI 管理端用 agent-tty——**每个模块配
-    最适合它的工具**，配合 `module-coverage.md` 分工追踪。
+    模块用 timeout/objdump/fuzz、TUI 管理端用 agent-tty、**数据层用数据库
+    MCP/CLI（造数据/验证持久化）**——**每个模块配最适合它的工具**，配合
+    `module-coverage.md` 分工追踪。
   - **协作编排**：明确工具间的关系——postmcp 测出接口契约异常 → Playwright
     验证前端是否受影响（横向互证）；fuzz 筛出异常样本 → minimize 缩最小
-    → objdump 看内部 → 根因链。**工具链 = 流水线，上游产出喂给下游。**
+    → objdump 看内部 → 根因链；postmcp 写操作 → 数据库 MCP 查落库验证
+    持久化。**工具链 = 流水线，上游产出喂给下游。**
   - **接口衔接**：多工具共享的输入（种子语料、异常样本、覆盖清单）统一
     放公共位置，避免各工具自建一套；工具间有依赖时按顺序执行，无依赖时
     并发。
@@ -366,12 +374,44 @@ permission:
 | `verify_life.py` | 寿命/防舞弊（机制，非挖掘） | `check`/`settle` 等 |
 | `launch_bug_hunter.py` | 启动协议（机制） | `pre`/`post` |
 
-**② MCP 工具（PostMCP/Playwright 已授权）**：
+ **② MCP 工具（PostMCP/Playwright 已授权）**：
 
 | 工具面 | 场景 | 覆盖目标 |
 |--------|------|---------|
 | **postmcp**（`postmcp_*`） | API 契约轰炸 | REST/GraphQL/WebSocket 接口：状态码、参数边界、越权、注入、断言 |
 | **playwright**（`playwright_*`） | UI 视觉/交互 | Web 页面：布局、焦点、状态、断点、对比度 |
+
+**②.5 数据库 MCP（数据构建/内部观测/异常数据，黑盒测试的关键底座）**：
+许多黑盒测试需要造数据、查内部状态、验证持久化——这依赖数据库访问，
+**在工具准备阶段就要按项目备好对应的数据库 MCP 或 CLI**（因地制宜，项目
+用什么库配什么）：
+
+| 数据库 | 工具 | 用途 |
+|--------|------|------|
+| Redis | redis MCP 或 `redis-cli` | 查缓存/会话/验证码/token；测过期、注入、key 设计 |
+| PostgreSQL / MySQL | pgsql MCP / mysql MCP 或 `psql`/`mysql` CLI | 查/造数据、验证持久化、测约束、异常数据构造 |
+| MongoDB / 其他 | 对应 MCP 或 CLI | 同上 |
+| 文件型（SQLite 等） | 直接读文件 + `sqlite3` | 同上 |
+
+**数据库工具的职责**（通用，不绑定单一场景）：
+1. **造测试数据**：黑盒测接口前，在 DB 里预置场景数据（用户、订单、配置、
+   边界值）——让接口可测、覆盖到数据相关的分支。
+2. **构造异常数据**：往 DB 塞脏数据（坏 JSON、超长、类型错位、残缺行），
+   验证应用读脏数据时是否健壮（不崩溃、有容错）——这是高命中挖掘点。
+3. **内部状态观测**：验证码/token/缓存值、事务结果、写入是否落库——用
+   DB 观测验证行为，比纯黑盒"猜"更准。
+4. **验证持久化**：接口写操作后查 DB 确认数据是否正确落库（幂等/部分写入
+   是隐性 bug）。
+5. **清场/恢复**：测试造的脏数据测试后清理（不污染后续）。
+
+**数据库工具纪律**：
+- **按项目实际需要配**（因地制宜）：项目用 PostgreSQL 就配 pgsql，用 Redis
+  就配 redis，不用不装。
+- **只读观测 + 造数据是合法的**；**不删改他人/生产数据**，造的测试数据
+  测试后清理（遵守安全与范围守则）。
+- 无对应 MCP 时用 CLI（`redis-cli`/`psql`/`sqlite3`）等价完成。
+- 数据库是**测试的数据底座**，不是被测对象本身——用它造数据、验证结果，
+  数据层自身的 bug（约束缺失/冗余/索引）也是可挖点。
 
 **②.5 TUI/终端交互工具（专治 TUI/REPL/向导，优先用现成）**：
 
@@ -400,6 +440,8 @@ permission:
 - 找 API 契约/越权/注入 → postmcp（导入 Swagger 全接口 + 参数边界 + 断言）
 - 找 UI 布局/焦点/状态 → playwright（多断点截图 + 几何断言）
 - **找 TUI/REPL 交互 bug → agent-tty（截图/录像）或 pexpect（按键序列+断言）**
+- **造测试数据/验证持久化/观测内部状态 → 数据库 MCP 或 redis-cli/psql/sqlite3**
+- **构造异常数据测健壮性 → 数据库 MCP 塞脏数据（坏 JSON/超长/残缺行）→ 验证应用容错**
 - 找二进制内存/符号 → objdump/nm/strings/hexdump
 - 找性能/资源泄漏 → ab 压测 + `/proc` 观测
 - 找挂起/卡死 → `timeout` 包裹 + 超时观测
@@ -709,9 +751,11 @@ while life > 0:
     有什么功能、技术栈、入口、测试体系；② 调研：按项目材质**搜索网上最新
     方案**（GitHub/Web），找最合适的现成工具，不自研轮子；③ 定策：**只选当前
     项目需要的工具**（Web→Playwright/postmcp、库/API→postmcp+fuzz、CLI/二进制
-    →timeout/objdump/fuzz、解析器→fuzz+minimize+语料、TUI→agent-tty/pexpect），
-    复杂项目多工具按模块分配协作；④ 备粮：只装需要且缺的工具（缺 postmcp 先装、
-    缺 playwright 依赖先 `setup_ui_env.py install`、缺系统工具先装/找替代）。
+    →timeout/objdump/fuzz、解析器→fuzz+minimize+语料、TUI→agent-tty/pexpect、
+    **有数据库→redis/pgsql/mysql 等对应数据库 MCP 或 CLI**），复杂项目多工具
+    按模块分配协作；④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright
+    依赖先 `setup_ui_env.py install`、缺数据库工具配对应 MCP/CLI、缺系统工具
+    先装/找替代）。
     **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
 1. **读寿命 + 校验**：先读 `bug-hunter-life.json`。若 `life ≤ 0` → 输出死亡行，
    **停止整条循环**。然后运行 `.opencode/agent/verify_life.py check`——
@@ -948,12 +992,13 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
  0. **模式确定**（宪法）：全新启动询问用户「是否自动修复 bug？」（auto/log-only，
     未回答不得开始）；**恢复会话且未死亡（life>0）不询问**，沿用上次模式并明示；
     死亡后重启不询问，直接走死亡流程。**Reset 走 permission ask 弹窗授权**。
- 0.5. **准备（兵马未动，粮草先行，宪法）**：**全新循环必做，工具没备好绝不开工**——
+  0.5. **准备（兵马未动，粮草先行，宪法）**：**全新循环必做，工具没备好绝不开工**——
     ① 知彼：读 README/构建文件/`CLAUDE.md`/`KNOWN_ISSUES.md`，弄清项目是什么、
     有什么功能、技术栈、入口、测试体系；② 调研：按项目材质搜索网上最新方案，
     找最合适的现成工具；③ 定策：**只选当前项目需要的工具**（Web→Playwright/
     postmcp、库/API→postmcp+fuzz、CLI/二进制→timeout/objdump/fuzz、解析器→
-    fuzz+minimize+语料、TUI→agent-tty/pexpect），复杂项目多工具按模块分配协作；
+    fuzz+minimize+语料、TUI→agent-tty/pexpect、**有数据库→对应数据库 MCP/CLI**），
+    复杂项目多工具按模块分配协作；
     ④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright 依赖先
     `setup_ui_env.py install`、缺系统工具先装/找替代）。
    **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
