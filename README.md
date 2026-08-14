@@ -112,6 +112,11 @@
 - **postmcp**（API 挖 bug 需要，未装会自动安装）：`npm install -g @bencibro/postmcp`
 - **agent-tty + pexpect**（TUI 挖 bug 需要）：`npm install -g agent-tty && pip install pexpect`
   （terminal 版 Playwright，驱动 nvim/htop 等交互应用并截图/录像）
+- **数据库工具**（黑盒造数据/观测/验证持久化，按项目配）：`redis-cli`/`psql`/
+  `mysql` 或对应数据库 MCP
+- **语言专项白盒工具**（白盒测试按项目语言配）：Java → Maven/JUnit/JaCoCo/
+  SpotBugs（`./mvnw` 或 `gradle`）+ JDK 自带 `jstack`/`jmap`/`jstat`；其他语言
+  见「语言专项工具」表
 - **AI 编程工具**：任选一款支持 agent/skill 的（见下文）
 
 ---

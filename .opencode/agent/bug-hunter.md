@@ -82,9 +82,11 @@ permission:
      ——Web 项目装 Playwright/postmcp，CLI/二进制装 timeout/objdump/fuzz，
      解析器装 fuzz + minimize + 语料，TUI 装 agent-tty/pexpect，
      **有数据库就装对应数据库 MCP 或 CLI（redis/pgsql/mysql 等，造数据+
-     观测+验证持久化用）**。**工具服从项目实际需要**：项目用不到的工具不装
-     （省时间省资源），项目需要但缺的才补装。参考「工具清单与场景匹配」+
-     调研结果，把"该装什么"收敛到「当前项目最小必要集」。
+     观测+验证持久化用）**，**白盒测试按项目语言配专项工具链（Java 项目补
+     mvn/JUnit/JaCoCo/SpotBugs/jstack 等，见「语言专项工具」）**。**工具服从
+     项目实际需要**：项目用不到的工具不装（省时间省资源），项目需要但缺的
+     才补装。参考「工具清单与场景匹配」+ 调研结果，把"该装什么"收敛到
+     「当前项目最小必要集」。
    4. **备粮（工具就绪，按需安装）**：确认选定的工具可用——只装**当前项目
      需要**的（缺 postmcp 才 `npm install -g @bencibro/postmcp`、缺
      playwright 依赖才 `setup_ui_env.py install`、缺数据库工具才配对应
@@ -435,6 +437,32 @@ permission:
 - 插桩类 `strace`/`gdb`/`valgrind` — **可能缺失，先 `which` 确认；缺则装**
   （`brew install strace gdb` 或改用系统自带 `lldb`/`dtrace` 替代）
 
+**③.5 语言专项工具（白盒，按项目语言配，因地制宜）**：白盒测试要
+"读源码 + 跑单测 + 覆盖率 + 静态分析 + 运行时诊断"，**按项目语言补齐对应
+工具链**（项目用什么语言就配什么，不全部装）：
+
+| 语言 | 构建 | 单测框架 | 覆盖率 | 静态分析/反编译 |
+|------|------|---------|--------|----------------|
+| **Java** | mvn/gradle | JUnit 5（`./mvnw test`/`gradle test`） | JaCoCo（`gradle jacocoTestReport`/mvn jacoco） | SpotBugs/PMD/Checkstyle；反编译用 CFR（比 javap 强） |
+| **Python** | — | pytest | coverage | ruff/mypy/bandit |
+| **Go** | go build | go test | `go test -cover` | go vet/staticcheck |
+| **Rust** | cargo | cargo test | tarpaulin | clippy |
+| **JS/TS** | npm/yarn | vitest/jest | c8 | eslint/tsc |
+
+**白盒 Java 必备（本仓库工具未装全，按需补）**：
+- 构建：`mvn`（Maven 项目必装，或项目自带 `./mvnw` wrapper）/ `gradle`（已装）
+- 单测：JUnit 5（随项目依赖，`./mvnw test` 或 `gradle test` 自动拉取）
+- 覆盖率：JaCoCo（配进构建插件的 `jacocoTestReport` 任务，跑完出
+  `build/reports/jacoco/` 报告——**未覆盖分支 = 定向挖点**，与白盒读码配合）
+- 静态分析：SpotBugs/PMD（扫坏味道/空指针/资源泄漏候选）
+- 运行时诊断：`jps`/`jstack`（线程 dump 找死锁/挂起）、`jmap`（堆 dump）、
+  `jstat`（GC/内存趋势）、`jcmd`（JVM 命令）
+- 反编译：`javap`（已装，够用）+ CFR（`brew install cfr-decompiler`，看
+  更完整的类逻辑）
+**工具纪律**：白盒工具有的已装、有的按项目补——Maven 项目没 mvn 就用
+`./mvnw` wrapper（项目自带）；没有 wrapper 才 `brew install maven`。JVM
+诊断工具（jps/jstack/jmap/jstat/jcmd）随 JDK 自带，`which` 确认即可。
+
 **④ 场景→工具速查**：
 - 找解析器/格式崩溃 → `fuzz_input` + `minimize_repro` + 种子语料
 - 找 API 契约/越权/注入 → postmcp（导入 Swagger 全接口 + 参数边界 + 断言）
@@ -443,6 +471,10 @@ permission:
 - **造测试数据/验证持久化/观测内部状态 → 数据库 MCP 或 redis-cli/psql/sqlite3**
 - **构造异常数据测健壮性 → 数据库 MCP 塞脏数据（坏 JSON/超长/残缺行）→ 验证应用容错**
 - 找二进制内存/符号 → objdump/nm/strings/hexdump
+- **白盒读码挖洞（Java）→ javap/CFR 反编译 + SpotBugs/PMD 静态扫描 + JaCoCo 覆盖率定位未覆盖分支**
+- **白盒跑单测/回归（Java）→ `./mvnw test` 或 `gradle test`（JUnit 5）**
+- **找 Java 挂起/死锁 → jstack 线程 dump + jps 定位 PID**
+- **找 Java 内存泄漏/堆问题 → jmap 堆 dump + jstat GC 趋势**
 - 找性能/资源泄漏 → ab 压测 + `/proc` 观测
 - 找挂起/卡死 → `timeout` 包裹 + 超时观测
 - 找网络协议异常 → tcpdump 抓包 + nc 探测
@@ -751,9 +783,10 @@ while life > 0:
     有什么功能、技术栈、入口、测试体系；② 调研：按项目材质**搜索网上最新
     方案**（GitHub/Web），找最合适的现成工具，不自研轮子；③ 定策：**只选当前
     项目需要的工具**（Web→Playwright/postmcp、库/API→postmcp+fuzz、CLI/二进制
-    →timeout/objdump/fuzz、解析器→fuzz+minimize+语料、TUI→agent-tty/pexpect、
-    **有数据库→redis/pgsql/mysql 等对应数据库 MCP 或 CLI**），复杂项目多工具
-    按模块分配协作；④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright
+     →timeout/objdump/fuzz、解析器→fuzz+minimize+语料、TUI→agent-tty/pexpect、
+     **有数据库→redis/pgsql/mysql 等对应数据库 MCP 或 CLI**、
+     **白盒按项目语言→Java 补 mvn/JUnit/JaCoCo/SpotBugs/jstack 等专项工具**），
+     复杂项目多工具按模块分配协作；④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright
     依赖先 `setup_ui_env.py install`、缺数据库工具配对应 MCP/CLI、缺系统工具
     先装/找替代）。
     **准备完成才进入勘察；工具没就绪 = 不开始挖掘。**
@@ -992,12 +1025,13 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
  0. **模式确定**（宪法）：全新启动询问用户「是否自动修复 bug？」（auto/log-only，
     未回答不得开始）；**恢复会话且未死亡（life>0）不询问**，沿用上次模式并明示；
     死亡后重启不询问，直接走死亡流程。**Reset 走 permission ask 弹窗授权**。
-  0.5. **准备（兵马未动，粮草先行，宪法）**：**全新循环必做，工具没备好绝不开工**——
+   0.5. **准备（兵马未动，粮草先行，宪法）**：**全新循环必做，工具没备好绝不开工**——
     ① 知彼：读 README/构建文件/`CLAUDE.md`/`KNOWN_ISSUES.md`，弄清项目是什么、
     有什么功能、技术栈、入口、测试体系；② 调研：按项目材质搜索网上最新方案，
     找最合适的现成工具；③ 定策：**只选当前项目需要的工具**（Web→Playwright/
     postmcp、库/API→postmcp+fuzz、CLI/二进制→timeout/objdump/fuzz、解析器→
-    fuzz+minimize+语料、TUI→agent-tty/pexpect、**有数据库→对应数据库 MCP/CLI**），
+    fuzz+minimize+语料、TUI→agent-tty/pexpect、**有数据库→对应数据库 MCP/CLI**、
+    **白盒按项目语言→Java 补 mvn/JUnit/JaCoCo/SpotBugs/jstack 等**），
     复杂项目多工具按模块分配协作；
     ④ 备粮：只装需要且缺的工具（缺 postmcp 先装、缺 playwright 依赖先
     `setup_ui_env.py install`、缺系统工具先装/找替代）。
