@@ -59,11 +59,27 @@ def browser_ok() -> tuple[bool, str]:
     return False, "Chromium 浏览器未下载"
 
 
+def tui_ok() -> tuple[bool, str]:
+    """检测 TUI 测试工具：agent-tty（terminal 版 Playwright）或 pexpect。"""
+    found = []
+    if shutil.which("agent-tty"):
+        found.append("agent-tty")
+    try:
+        import pexpect  # noqa: F401
+        found.append("pexpect")
+    except ImportError:
+        pass
+    if found:
+        return True, f"TUI 工具就绪（{', '.join(found)}）"
+    return False, "TUI 工具缺失（无 agent-tty/pexpect，安装: npm i -g agent-tty; pip install pexpect）"
+
+
 def check() -> int:
     print("=" * 52)
-    print("Bug-Hunter UI 环境自检")
+    print("Bug-Hunter UI/TUI 环境自检")
     print("=" * 52)
-    checks = [("Node", node_ok), ("npx", npx_ok), ("Playwright 浏览器", browser_ok)]
+    checks = [("Node", node_ok), ("npx", npx_ok), ("Playwright 浏览器", browser_ok),
+              ("TUI 工具(agent-tty/pexpect)", tui_ok)]
     missing: list[str] = []
     for name, fn in checks:
         ok, detail = fn()
@@ -75,7 +91,7 @@ def check() -> int:
         print(f"缺失 {len(missing)} 项：{', '.join(missing)}")
         print("运行 `python3 setup_ui_env.py install` 自动补装。")
         return 1
-    print("UI 环境就绪。playwright_* 工具可用。")
+    print("UI/TUI 环境就绪。playwright_* / agent-tty / pexpect 可用。")
     return 0
 
 
@@ -91,17 +107,22 @@ def install() -> int:
         print("✗ npx 缺失，请安装 npm（随 Node.js 附带）")
         return 1
     # 1. 确保 @playwright/mcp 可用（触发 npx 下载缓存）
-    print("[1/3] 准备 @playwright/mcp …")
+    print("[1/4] 准备 @playwright/mcp …")
     sh([npx, "--yes", "@playwright/mcp@latest", "--version"])
     # 2. 确保 Chromium 浏览器
-    print("[2/3] 下载 Chromium 浏览器 …")
+    print("[2/4] 下载 Chromium 浏览器 …")
     r = sh([npx, "--yes", "playwright", "install", "chromium"])
     if r.returncode != 0:
         print("✗ Chromium 下载失败：", r.stderr.strip()[-500:])
         return 1
     print("✓ Chromium 就绪")
-    # 3. 复检
-    print("[3/3] 复检 …")
+    # 3. 确保 TUI 工具（agent-tty 全局 + pexpect）
+    print("[3/4] 安装 TUI 工具（agent-tty + pexpect）…")
+    sh(["npm", "install", "-g", "agent-tty"])
+    sh([sys.executable, "-m", "pip", "install", "--quiet", "pexpect"])
+    print("✓ TUI 工具就绪")
+    # 4. 复检
+    print("[4/4] 复检 …")
     rc = check()
     if rc == 0:
         print("=" * 52)

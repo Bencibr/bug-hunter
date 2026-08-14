@@ -58,11 +58,15 @@
   `test-report.md` 汇总测试报告。
 - **UI 挖 bug**：通过 Playwright 打开网页，多断点截图 + DOM 几何断言 +
   交互轰炸 + 状态覆盖，找布局崩塌、焦点陷阱、文案截断、对比度不足等视觉 bug。
-- **API 挖 bug**：通过 **postmcp** 对 HTTP(REST)/GraphQL/WebSocket 接口做
-  契约轰炸——参数边界/越权/注入/状态码断言，配合 Swagger/Postman 导入全接口
-  清单。可与 Playwright 配合（同应用 API 层 + UI 层互证），也可单独使用。
-- **测试广度保障**：65 例单元测试覆盖校验器/启动协议/环境自检/最小化/模糊/
-  种子扩充，外加一致性测试防文档漂移（版本/引用/权限/覆盖）——改动不怕破坏。
+ - **API 挖 bug**：通过 **postmcp** 对 HTTP(REST)/GraphQL/WebSocket 接口做
+   契约轰炸——参数边界/越权/注入/状态码断言，配合 Swagger/Postman 导入全接口
+   清单。可与 Playwright 配合（同应用 API 层 + UI 层互证），也可单独使用。
+- **TUI 挖 bug**：通过 **agent-tty**（terminal 版 Playwright）/ **pexpect** 驱动
+  TUI/REPL/向导——按键序列轰炸、状态机违例、退出路径，截图/录像可复核。
+  有成熟工具优先用，不自研轮子。
+- **测试广度保障**：67 例单元测试覆盖校验器/启动协议/环境自检（含 TUI 工具）/
+  最小化/模糊/种子扩充，外加一致性测试防文档漂移（版本/引用/权限/覆盖）——
+  改动不怕破坏。
 
 ### 文件结构
 
@@ -72,7 +76,7 @@
 | `.opencode/agent/verify_life.py` | 寿命校验器（check/repair/settle/reset/snapshot/diff/restore/selfhash，含自哈希防篡改） |
 | `.opencode/agent/launch_bug_hunter.py` | 启动协议（pre 输出外部基线 / post 核对 / status） |
 | `.opencode/agent/lockdown.sh` | OS 层加固（把校验器/基线设为只读） |
-| `.opencode/agent/setup_ui_env.py` | UI 环境自检/自动补装（node/playwright/浏览器） |
+| `.opencode/agent/setup_ui_env.py` | UI/TUI 环境自检/自动补装（node/playwright/浏览器/agent-tty/pexpect） |
 | `.opencode/agent/mistake-book.md` | 错题集（反思归类复用） |
 | `.opencode/agent/bug-log.md` | bug 记录清单（只记录模式的产物 + 全模式去重依据） |
 | `.opencode/agent/module-coverage.md` | 模块覆盖清单（化整为零：拆分模块 + 覆盖追踪） |
@@ -86,7 +90,7 @@
 | `test-report.md` | 死亡退出前的汇总测试报告（运行时生成） |
 | `tests/test_verify_life.py` | 校验器单元测试（23 例：check/settle/diff/repair/evidence/selfhash） |
 | `tests/test_launch_bug_hunter.py` | 启动协议测试（5 例：pre/post/status） |
-| `tests/test_setup_ui_env.py` | 环境自检测试（10 例：node/npx/浏览器检测） |
+| `tests/test_setup_ui_env.py` | 环境自检测试（12 例：node/npx/浏览器/TUI 工具检测） |
 | `tests/test_minimize_repro.py` | 最小化工具测试（3 例） |
 | `tests/test_fuzz_input.py` | 模糊工具测试（9 例：变异策略/崩溃筛选/端到端） |
 | `tests/test_corpus_fetch.py` | 种子扩充测试（9 例：搜索/提取/去重/端到端） |
@@ -104,6 +108,8 @@
 - **Python 3**：运行 `verify_life.py` / `launch_bug_hunter.py`
 - **Node.js + npx**：运行 Playwright MCP（UI 挖 bug 才需要）
 - **postmcp**（API 挖 bug 需要，未装会自动安装）：`npm install -g @bencibro/postmcp`
+- **agent-tty + pexpect**（TUI 挖 bug 需要）：`npm install -g agent-tty && pip install pexpect`
+  （terminal 版 Playwright，驱动 nvim/htop 等交互应用并截图/录像）
 - **AI 编程工具**：任选一款支持 agent/skill 的（见下文）
 
 ---
@@ -118,12 +124,12 @@
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-**测试覆盖（65 例）**：
+**测试覆盖（67 例）**：
 - `test_verify_life.py`（23）— check / settle 结算护栏（credited、证据校验、
   轮号、历史去重）/ snapshot/diff/restore / repair 幽灵轮费回滚 / 篡改自校验
 - `test_launch_bug_hunter.py`（5）— pre 基线+外部基线输出 / post diff 异常回滚
   / status
-- `test_setup_ui_env.py`（10）— node/npx/浏览器检测、check 汇总、缺失上报
+- `test_setup_ui_env.py`（12）— node/npx/浏览器检测、TUI 工具检测、check 汇总、缺失上报
 - `test_minimize_repro.py`（3）— ddmin 最小化（去噪保触发、多 token 保留）
 - `test_fuzz_input.py`（9）— 变异策略（truncate/flip/garbage/numeric/string/
   duplicate）、崩溃/超时筛选、端到端 summary+异常落盘

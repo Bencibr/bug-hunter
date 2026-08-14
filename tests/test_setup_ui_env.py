@@ -85,18 +85,21 @@ class SetupUiEnvTestCase(unittest.TestCase):
     @mock.patch("setup_ui_env.node_ok", return_value=(True, "ok"))
     @mock.patch("setup_ui_env.npx_ok", return_value=(True, "ok"))
     @mock.patch("setup_ui_env.browser_ok", return_value=(True, "ok"))
+    @mock.patch("setup_ui_env.tui_ok", return_value=(True, "ok"))
     def test_check_all_ok_returns_zero(self, *_):
         self.assertEqual(s.check(), 0)
 
     @mock.patch("setup_ui_env.node_ok", return_value=(False, "node 未安装"))
     @mock.patch("setup_ui_env.npx_ok", return_value=(True, "ok"))
     @mock.patch("setup_ui_env.browser_ok", return_value=(True, "ok"))
+    @mock.patch("setup_ui_env.tui_ok", return_value=(True, "ok"))
     def test_check_node_missing_returns_nonzero(self, *_):
         self.assertNotEqual(s.check(), 0)
 
     @mock.patch("setup_ui_env.node_ok", return_value=(True, "ok"))
     @mock.patch("setup_ui_env.npx_ok", return_value=(False, "npx 缺失"))
     @mock.patch("setup_ui_env.browser_ok", return_value=(False, "浏览器缺失"))
+    @mock.patch("setup_ui_env.tui_ok", return_value=(True, "ok"))
     def test_check_multiple_missing_reports_both(self, *_):
         import io
         from contextlib import redirect_stdout
@@ -108,6 +111,31 @@ class SetupUiEnvTestCase(unittest.TestCase):
         out = buf.getvalue()
         self.assertIn("npx", out)
         self.assertIn("浏览器", out)
+
+    # ---- tui_ok ----
+
+    @mock.patch("setup_ui_env.shutil.which", return_value="/usr/bin/agent-tty")
+    def test_tui_ok_with_agent_tty(self, _w):
+        ok, msg = s.tui_ok()
+        self.assertTrue(ok)
+        self.assertIn("agent-tty", msg)
+
+    @mock.patch("setup_ui_env.shutil.which", return_value=None)
+    def test_tui_ok_missing_both(self, _w):
+        # 模拟 pexpect 未装（无论真实环境是否有）
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *a, **kw):
+            if name == "pexpect" or name.startswith("pexpect."):
+                raise ImportError("pexpect not installed (mock)")
+            return real_import(name, *a, **kw)
+
+        with mock.patch.object(builtins, "__import__", fake_import):
+            ok, msg = s.tui_ok()
+        self.assertFalse(ok)
+        self.assertIn("缺失", msg)
 
 
 if __name__ == "__main__":

@@ -344,6 +344,18 @@ permission:
 | **postmcp**（`postmcp_*`） | API 契约轰炸 | REST/GraphQL/WebSocket 接口：状态码、参数边界、越权、注入、断言 |
 | **playwright**（`playwright_*`） | UI 视觉/交互 | Web 页面：布局、焦点、状态、断点、对比度 |
 
+**②.5 TUI/终端交互工具（专治 TUI/REPL/向导，优先用现成）**：
+
+| 工具 | 场景 | 说明 |
+|------|------|------|
+| **`agent-tty`**（首选） | TUI 交互轰炸（terminal 版 Playwright） | `npm install -g agent-tty`；给 agent 真实终端，驱动 nvim/htop 等交互应用，返回**快照/截图/录像可复核**。Node≥24 已满足，Chromium 已装。**优先用它替代自研 PTY harness** |
+| **`pexpect`**（Python） | TUI 按键序列/断言 | `pip install pexpect`；成熟 PTY 交互（spawn/expect/sendline），自带超时与断言 |
+| **`expectrl`**（Rust） | Rust 侧 PTY 交互 | `cargo add expectrl` |
+| **`expect`**（系统） | 快速 TUI 自动化 | `/usr/bin/expect`，Tcl 脚本驱动交互应用 |
+| 自研独立 harness | 前四个都用不了时的 fallback | 仅当目标环境无 Node/Python/expect 才自研（见接口面 2 纪律） |
+
+**TUI 工具选择铁律**：① 有 `agent-tty`/`pexpect` 就不用自研 harness（成熟工具是安全观测仪器，不属于被测仓库，复用不污染同源性）；② 自研 harness 是最后手段，不是默认；③ 工具缺失先 `npm install -g agent-tty` / `pip install pexpect` 再打。
+
 **③ 系统级工具（`which` 先排查，缺则先装）**：
 - `timeout` — 给所有目标套超时（防挂起卡死）
 - `objdump`/`nm`/`strings`/`hexdump`/`xxd` — 二进制静态侦查（L3 逆向，读符号/字符串/字节）
@@ -358,6 +370,7 @@ permission:
 - 找解析器/格式崩溃 → `fuzz_input` + `minimize_repro` + 种子语料
 - 找 API 契约/越权/注入 → postmcp（导入 Swagger 全接口 + 参数边界 + 断言）
 - 找 UI 布局/焦点/状态 → playwright（多断点截图 + 几何断言）
+- **找 TUI/REPL 交互 bug → agent-tty（截图/录像）或 pexpect（按键序列+断言）**
 - 找二进制内存/符号 → objdump/nm/strings/hexdump
 - 找性能/资源泄漏 → ab 压测 + `/proc` 观测
 - 找挂起/卡死 → `timeout` 包裹 + 超时观测
@@ -380,20 +393,24 @@ objdump/strings 看内部 → 根因链。自研工具是主武器，系统工�
 
 1. **单次 CLI**：`timeout 30 <bin> <args> < input > /tmp/out 2> /tmp/err`
    —— 必须捕获：exit code、stdout、stderr；非零退出 / traceback / 挂起都是信号。
-2. **交互式（TUI / REPL / 向导）**：**新造独立黑盒 harness，禁止复用仓库
-   自带测试基建**（`tests/live/pty_harness.py`、`PTYSession`、`run_tui_section.py`
-   全都是被测仓库的一部分）——目标本身就是该仓库时，复用 = harness 与目标
-   同源，harness 的 bug 无法与目标的 bug 区分，黑盒失去独立性（观测仪器
-   不能长在被测对象身上）。独立 harness 必须满足：
+2. **交互式（TUI / REPL / 向导）**：**优先用现成 TUI 工具**（`agent-tty`/
+   `pexpect`/`expectrl`/系统 `expect`，见「工具清单与场景匹配·②.5」）——它们是
+   成熟观测仪器、不属于被测仓库，复用**不污染同源性**，且自带截图/断言/超时。
+   工具缺失先装（`npm install -g agent-tty` / `pip install pexpect`）再打。
+   **自研独立 harness 只是 fallback**（仅当现成工具都不适用时），且必须：
    - 只用 Python 标准库（`pty` / `os` / `select` / `fcntl` / `subprocess`）
    - 写在仓库之外（`/tmp/bb-harness/`），**不 import 目标任何模块/文件**
    - 自己实现 spawn / 发送按键 / 读输出 / 超时 / 屏幕快照 / 退出状态捕获
    - 自带 harness 自身错误检测（发送后无响应、PTY 异常断开、字节流损坏），
      把「harness 坏」和「目标坏」分开记录
    每轮新写或增补这个独立 harness；harness 自身也是质疑对象。
-   **同源边界**：自己造的 harness 必须始终留在仓库之外（`/tmp/bb-harness/`）；
-   一旦被写进仓库（`tools/`、`tests/`、`src/` 等），它就成为被测对象的一部分，
-   不得再用于黑盒（黑盒复用自己进过仓库的工具 = 间接复用被测仓库）。
+   **同源边界**：无论是现成工具还是自研 harness，**一律禁止复用被测仓库自带
+   的测试基建**（`tests/live/pty_harness.py`、`PTYSession`、`run_tui_section.py`
+   全都是被测仓库的一部分）——复用 = harness 与目标同源，harness 的 bug 无法
+   与目标的 bug 区分，黑盒失去独立性（观测仪器不能长在被测对象身上）。
+   自研 harness 必须始终留在仓库之外（`/tmp/bb-harness/`）；一旦被写进仓库
+   （`tools/`、`tests/`、`src/` 等），它就成为被测对象的一部分，不得再用于
+   黑盒（黑盒复用自己进过仓库的工具 = 间接复用被测仓库）。
 3. **数据文件 / 配置 / 服务接口**：喂构造的畸形 JSON/YAML/DB/输入文件；
    若目标起服务（HTTP/RPC），用 curl / requests 打接口。
 4. **UI 视觉/交互面（浏览器渲染）**：用 Playwright 打开目标页面，通过
@@ -1026,9 +1043,13 @@ rounds_completed/alive/history）。**你不手写它**——结算用 `verify_l
 - ❌ **蒙眼开工（违兵马未动·知己知彼）**：不先了解项目（是什么/什么功能/
   什么栈）就开打、不按项目类型选工具、工具没装好就硬上——带着没磨的刀
   上战场 = 烧命。三思而行、知己知彼、工具就绪是开工前固定动作，不是可选。
-- ❌ **仓促上阵（违三思而行·无准备仗）**：不规划目标/手法/产出标准就盲目
-  冲锋，或明知缺工具/缺语料还硬开工——准备的量 = 战斗的胜率，宁可先补
-  准备也不仓促。
+ - ❌ **仓促上阵（违三思而行·无准备仗）**：不规划目标/手法/产出标准就盲目
+   冲锋，或明知缺工具/缺语料还硬开工——准备的量 = 战斗的胜率，宁可先补
+   准备也不仓促。
+- ❌ **重复造轮子（违工欲善其事·先调研）**：有成熟开源工具（agent-tty/
+  pexpect/expectrl/postmcp/playwright）却硬要自研，或没先搜索网上最新方案
+  就假设"只能自己写"——先调研现成工具，缺的再自研；自研轮子往往是
+  "没调研就动手"的偷懒借口。
 - ❌ **盲目采信**：把 harness/测试/文档/「全绿」当真理，不质疑观测仪器
   自身——harness 的错会被你记成目标的错，欺诈风险由仪器转嫁给你。
 - ❌ **假修复**：宣称修好了但测试没转绿、没跑回归、**Live 复验没通过**（原始
